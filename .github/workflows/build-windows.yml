@@ -1,0 +1,139 @@
+# Eclipse Pro — Windows exe builder (GitHub Actions)
+#
+# Kaise use karein:
+# 1. Is file ko repo me .github/workflows/build-windows.yml path par add karo
+#    (GitHub website -> Add file -> Create new file -> naam me poora path likho)
+# 2. Actions tab -> "Build Eclipse Pro (Windows exe)" -> Run workflow dabao
+# 3. Build khatam hone par neeche "Artifacts" me EclipsePro-windows download karo
+#
+# NOTE (v1): Pehli build me fail hona normal hai — log bhej dena, fix kar dunga.
+
+name: Build Eclipse Pro (Windows exe)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 240
+
+    steps:
+      # ---------- 1. MSYS2 + build dependencies ----------
+      - name: Set up MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: mingw64
+          update: true
+          install: >-
+            git
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-swig
+            mingw-w64-x86_64-qt6-base
+            mingw-w64-x86_64-ffmpeg
+            mingw-w64-x86_64-libvpx
+            mingw-w64-x86_64-zeromq
+            mingw-w64-x86_64-protobuf
+            mingw-w64-x86_64-opencv
+            mingw-w64-x86_64-python
+
+      # ---------- 2. Python + PyQt6 + cx_Freeze ----------
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install PyQt6 cx_Freeze
+          $pyExe = (Get-Command python).Source
+          $pyRoot = Split-Path (Split-Path $pyExe)
+          $pyVer = python -c "import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')"
+          "PY_EXE=$pyExe" >> $env:GITHUB_ENV
+          "PY_ROOT=$pyRoot" >> $env:GITHUB_ENV
+          "PY_INC=$pyRoot\Include" >> $env:GITHUB_ENV
+          "PY_LIB=$pyRoot\libs\python$pyVer.lib" >> $env:GITHUB_ENV
+
+      # ---------- 3. Engine source ----------
+      - name: Clone libopenshot-audio + libopenshot
+        shell: msys2 {0}
+        run: |
+          git clone --depth 1 https://github.com/OpenShot/libopenshot-audio.git
+          git clone --depth 1 https://github.com/OpenShot/libopenshot.git
+
+      # ---------- 4. Eclipse Pro source + patch ----------
+      - name: Get Eclipse Pro source and apply patch
+        shell: pwsh
+        run: |
+          git init eclipse-pro
+          cd eclipse-pro
+          git remote add origin https://github.com/OpenShot/openshot-qt.git
+          git fetch --depth 1 origin ca807410dc2dfbd5be81cf2c71477f4425b41cc7
+          git checkout FETCH_HEAD
+          # Eclipse changes patch (temporary link, expires ~48h after 2026-10-03)
+          Invoke-WebRequest -Uri "https://muse.ai/files/1365194086677020/1838280244025204/ng97x84fwuqscg3qnpeksdz2/eclipse-changes.patch" -OutFile eclipse.patch
+          git apply eclipse.patch
+          git status --short | head -20
+
+      # ---------- 5. Build libopenshot-audio ----------
+      - name: Build libopenshot-audio
+        shell: msys2 {0}
+        run: |
+          cd libopenshot-audio
+          cmake -B build -S . -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j $(nproc)
+          cmake --install build --prefix /mingw64
+
+      # ---------- 6. Build libopenshot (Python bindings -> setup-python) ----------
+      - name: Build libopenshot
+        shell: msys2 {0}
+        run: |
+          PY_ROOT_U=$(cygpath -u "$PY_ROOT")
+          PY_INC_U=$(cygpath -u "$PY_INC")
+          PY_LIB_U=$(cygpath -u "$PY_LIB")
+          PY_EXE_U=$(cygpath -u "$PY_EXE")
+          cd libopenshot
+          cmake -B build -S . -G "MinGW Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DUSE_QT6=ON \
+            -DDISABLE_TESTS=1 \
+            -DOpenShotAudio_ROOT="$PWD/../libopenshot-audio/build" \
+            -DPYTHON_EXECUTABLE="$PY_EXE_U" \
+            -DPYTHON_INCLUDE_DIR="$PY_INC_U" \
+            -DPYTHON_LIBRARY="$PY_LIB_U"
+          cmake --build build -j $(nproc)
+          cmake --install build --prefix "$PY_ROOT_U"
+
+      - name: Verify openshot import
+        shell: pwsh
+        run: |
+          $env:PATH = "$env:PY_ROOT\bin;$env:PATH"
+          python -c "import openshot; print('openshot OK:', openshot.__file__)"
+
+      # ---------- 7. Freeze to exe ----------
+      - name: Freeze EclipsePro.exe
+        shell: pwsh
+        run: |
+          cd eclipse-pro
+          $env:PATH = "$env:PY_ROOT\bin;$env:PATH"
+          python -m cx_Freeze src/launch.py --target-dir dist --target-name EclipsePro --base console
+
+      - name: Bundle DLLs
+        shell: msys2 {0}
+        run: |
+          PY_ROOT_U=$(cygpath -u "$PY_ROOT")
+          cp "$PY_ROOT_U"/bin/*.dll eclipse-pro/dist/ 2>/dev/null || true
+          cp /mingw64/bin/*.dll eclipse-pro/dist/ 2>/dev/null || true
+          ls eclipse-pro/dist | head -20
+
+      # ---------- 8. Upload exe ----------
+      - name: Upload EclipsePro
+        uses: actions/upload-artifact@v4
+        with:
+          name: EclipsePro-windows
+          path: eclipse-pro/dist/
