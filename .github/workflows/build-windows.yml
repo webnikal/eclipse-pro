@@ -66,6 +66,11 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/OpenShot/libopenshot-audio.git
           git clone --depth 1 https://github.com/OpenShot/libopenshot.git
+          # FFmpeg 7+ compat patch for libopenshot (AVCodec capability lists are private now)
+          curl -sL "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/patches/libopenshot-ffmpeg7.patch" -o /tmp/ffmpeg7.patch
+          cd libopenshot
+          git apply /tmp/ffmpeg7.patch
+          cd ..
 
       # ---------- 4. Eclipse Pro source + patch ----------
       - name: Get Eclipse Pro source and apply patch
