@@ -144,7 +144,20 @@ jobs:
         run: |
           $env:PATH = "$env:PY_ROOT\bin;$env:RUNNER_TEMP\msys64\mingw64\bin;$env:PATH"
           $env:PYTHONPATH = "$env:PY_ROOT\python"
-          python -c "import os; os.add_dll_directory(os.path.join(os.environ['PY_ROOT'], 'python')); os.add_dll_directory(os.path.join(os.environ['RUNNER_TEMP'], 'msys64', 'mingw64', 'bin')); import openshot; print('openshot OK:', openshot.__file__)"
+          $py = @'
+          import os, ctypes
+          d = os.path.join(os.environ['PY_ROOT'], 'python')
+          os.add_dll_directory(d)
+          msys = os.path.join(os.environ['RUNNER_TEMP'], 'msys64', 'mingw64', 'bin')
+          os.add_dll_directory(msys)
+          for x in ['libgcc_s_seh-1.dll','libwinpthread-1.dll','libstdc++-6.dll','libjsoncpp-27.dll','libopenshot-audio.dll','Qt6Core.dll','Qt6Gui.dll','libopenshot.dll']:
+              ctypes.WinDLL(os.path.join(d, x))
+          print('deps preloaded')
+          import openshot
+          print('openshot OK:', openshot.__file__)
+          '@
+          $py | Out-File -Encoding ascii "$env:RUNNER_TEMP\verify.py"
+          python "$env:RUNNER_TEMP\verify.py"
       - name: Pinpoint failing DLL
         if: failure()
         shell: pwsh
