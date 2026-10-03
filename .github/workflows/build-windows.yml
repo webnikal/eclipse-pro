@@ -148,13 +148,21 @@ jobs:
           import os, ctypes
           d = os.path.join(os.environ['PY_ROOT'], 'python')
           os.add_dll_directory(d)
-          msys = os.path.join(os.environ['RUNNER_TEMP'], 'msys64', 'mingw64', 'bin')
-          os.add_dll_directory(msys)
+          pyd = os.path.join(d, '_openshot.pyd')
           for x in ['libgcc_s_seh-1.dll','libwinpthread-1.dll','libstdc++-6.dll','libjsoncpp-27.dll','libopenshot-audio.dll','Qt6Core.dll','Qt6Gui.dll','libopenshot.dll']:
               ctypes.WinDLL(os.path.join(d, x))
           print('deps preloaded')
-          import openshot
-          print('openshot OK:', openshot.__file__)
+          try:
+              h = ctypes.WinDLL(pyd)
+              print('PYD-CTYPES-OK handle:', h._handle)
+          except Exception as e:
+              print('PYD-CTYPES-FAIL:', e)
+          try:
+              import openshot
+              print('IMPORT-OK:', openshot.__file__)
+          except Exception as e:
+              print('IMPORT-FAIL:', e)
+              raise SystemExit(1)
           '@
           $py | Out-File -Encoding ascii "$env:RUNNER_TEMP\verify.py"
           python "$env:RUNNER_TEMP\verify.py"
