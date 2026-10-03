@@ -128,19 +128,14 @@ jobs:
           ls -la "$PY_ROOT_U"/python/_openshot.pyd
           file "$PY_ROOT_U"/python/_openshot.pyd
           objdump -p "$PY_ROOT_U"/python/_openshot.pyd | grep "DLL Name:" | sort -u
-          echo "--- recursive missing-DLL check (all staged DLLs) ---"
-          missing=0
+          echo "--- recursive missing-DLL check (staged + System32) ---"
           for dll in "$PY_ROOT_U"/python/*.dll; do
             objdump -p "$dll" 2>/dev/null | grep "DLL Name:" | awk '{print $3}' | sort -u | while read -r dep; do
-              dlower=$(echo "$dep" | tr 'A-Z' 'a-z')
-              case "$dlower" in
-                kernel32.dll|ntdll.dll|msvcrt.dll|user32.dll|gdi32.dll|advapi32.dll|shell32.dll|ole32.dll|oleaut32.dll|comdlg32.dll|comctl32.dll|ws2_32.dll|wsock32.dll|rpcrt4.dll|shlwapi.dll|version.dll|imm32.dll|setupapi.dll|dwmapi.dll|uxtheme.dll|bcrypt.dll|crypt32.dll|secur32.dll|netapi32.dll|wtsapi32.dll|d3d11.dll|dxgi.dll|opengl32.dll|winmm.dll|winspool.drv|lz32.dll|mpr.dll|cfgmgr32.dll|propsys.dll|powrprof.dll|devobj.dll|kernelbase.dll|msimg32.dll|dwrite.dll|d2d1.dll) continue;;
-              esac
-              if [ ! -f "$PY_ROOT_U/python/$dep" ]; then
-                echo "MISSING: $dep (needed by $(basename $dll))"
+              if [ ! -f "$PY_ROOT_U/python/$dep" ] && [ ! -f "/c/Windows/System32/$dep" ]; then
+                echo "REAL-MISSING: $dep (needed by $(basename $dll))"
               fi
             done
-          done | sort -u | head -30
+          done | sort -u | head -20
           echo "--- staged count ---"
           ls "$PY_ROOT_U"/python/*.dll | wc -l
 
@@ -150,6 +145,23 @@ jobs:
           $env:PATH = "$env:PY_ROOT\bin;$env:RUNNER_TEMP\msys64\mingw64\bin;$env:PATH"
           $env:PYTHONPATH = "$env:PY_ROOT\python"
           python -c "import os; os.add_dll_directory(os.path.join(os.environ['PY_ROOT'], 'python')); os.add_dll_directory(os.path.join(os.environ['RUNNER_TEMP'], 'msys64', 'mingw64', 'bin')); import openshot; print('openshot OK:', openshot.__file__)"
+      - name: Pinpoint failing DLL
+        if: failure()
+        shell: pwsh
+        run: |
+          $py = @'
+          import os, ctypes
+          d = os.path.join(os.environ['PY_ROOT'], 'python')
+          for x in ['libgcc_s_seh-1.dll','libwinpthread-1.dll','libstdc++-6.dll','libjsoncpp-27.dll','libopenshot-audio.dll','Qt6Core.dll','Qt6Gui.dll','libopenshot.dll']:
+              p = os.path.join(d, x)
+              try:
+                  ctypes.WinDLL(p)
+                  print('LOAD-OK:', x)
+              except Exception as e:
+                  print('LOAD-FAIL:', x, '->', e)
+          '@
+          $py | Out-File -Encoding ascii "$env:RUNNER_TEMP\pinpoint.py"
+          python "$env:RUNNER_TEMP\pinpoint.py"
 
       # ---------- 7. Freeze to exe ----------
       - name: Freeze EclipsePro.exe
