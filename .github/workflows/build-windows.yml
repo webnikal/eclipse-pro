@@ -160,7 +160,7 @@ jobs:
           echo "=== DLL names in pyd import table (hidden chars shown) ==="
           objdump -p "$DEPS_U"/python/_openshot.pyd | grep "DLL Name:" | cat -A
           echo "=== libopenshot.dll internal name (hidden chars shown) ==="
-          objdump -p "$PY_ROOT_U"/python/libopenshot.dll | grep -m1 -A1 "Export Table" | cat -A
+          objdump -p "$DEPS_U"/python/libopenshot.dll | grep -m1 -A1 "Export Table" | cat -A
           echo "=== staged filenames (hidden chars shown) ==="
           ls "$DEPS_U"/python/ | grep -i "openshot\|jsoncpp" | cat -A
           echo "=== pyopenshot link command ==="
