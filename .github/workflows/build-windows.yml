@@ -32,8 +32,8 @@ jobs:
             mingw-w64-x86_64-make
             mingw-w64-x86_64-pkgconf
             mingw-w64-x86_64-swig
-            mingw-w64-x86_64-qt6-base
-            mingw-w64-x86_64-qt6-svg
+            mingw-w64-x86_64-qt5-base
+            mingw-w64-x86_64-qt5-svg
             mingw-w64-x86_64-ffmpeg
             mingw-w64-x86_64-libvpx
             mingw-w64-x86_64-zeromq
@@ -91,13 +91,14 @@ jobs:
 
       # ---------- 4b. Restore compiled C++ deps (cache) ----------
       # C++ compile (~5-7 min) is skipped on cache hit; Python/packaging fixes
-      # then rebuild in ~3-4 min. Bump -v1 if patches/libopenshot-ffmpeg7.patch changes.
+      # then rebuild in ~3-4 min. Bump -vN if patches/libopenshot-ffmpeg7.patch changes
+      # or if the C++ build flags change (v2: Qt5 instead of Qt6 for libopenshot).
       - name: Restore compiled deps cache
         id: deps-cache
         uses: actions/cache@v4
         with:
           path: deps
-          key: eclipse-deps-${{ runner.os }}-${{ env.AUDIO_SHA }}-${{ env.LIBOPENSHOT_SHA }}-v1
+          key: eclipse-deps-${{ runner.os }}-${{ env.AUDIO_SHA }}-${{ env.LIBOPENSHOT_SHA }}-v2
 
       # ---------- 5. Build libopenshot-audio ----------
       - name: Build libopenshot-audio
@@ -123,7 +124,7 @@ jobs:
           cd libopenshot
           cmake -B build -S . -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DUSE_QT6=ON \
+            -DUSE_QT6=OFF \
             -DDISABLE_TESTS=1 \
             -DOpenShotAudio_ROOT="$PWD/../libopenshot-audio/build" \
             -DPYTHON_EXECUTABLE="$PY_EXE_U" \
