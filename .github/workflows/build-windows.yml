@@ -72,6 +72,8 @@ jobs:
           cd libopenshot
           git apply /tmp/ffmpeg7.patch
           cd ..
+          echo "AUDIO_SHA=$(cd libopenshot-audio && git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "LIBOPENSHOT_SHA=$(cd libopenshot && git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       # ---------- 4. Eclipse Pro source + patch ----------
       - name: Get Eclipse Pro source and apply patch
@@ -87,19 +89,33 @@ jobs:
           git apply eclipse.patch
           git status --short | head -20
 
+      # ---------- 4b. Restore compiled C++ deps (cache) ----------
+      # C++ compile (~5-7 min) is skipped on cache hit; Python/packaging fixes
+      # then rebuild in ~3-4 min. Bump -v1 if patches/libopenshot-ffmpeg7.patch changes.
+      - name: Restore compiled deps cache
+        id: deps-cache
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: eclipse-deps-${{ runner.os }}-${{ env.AUDIO_SHA }}-${{ env.LIBOPENSHOT_SHA }}-v1
+
       # ---------- 5. Build libopenshot-audio ----------
       - name: Build libopenshot-audio
+        if: steps.deps-cache.outputs.cache-hit != 'true'
         shell: msys2 {0}
         run: |
+          DEPS_U=$(cygpath -u "$GITHUB_WORKSPACE")/deps
           cd libopenshot-audio
           cmake -B build -S . -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DJUCE_ASIO=0"
           cmake --build build -j $(nproc)
-          cmake --install build --prefix /mingw64
+          cmake --install build --prefix "$DEPS_U"
 
       # ---------- 6. Build libopenshot (Python bindings -> setup-python) ----------
       - name: Build libopenshot
+        if: steps.deps-cache.outputs.cache-hit != 'true'
         shell: msys2 {0}
         run: |
+          DEPS_U=$(cygpath -u "$GITHUB_WORKSPACE")/deps
           PY_ROOT_U=$(cygpath -u "$PY_ROOT")
           PY_INC_U=$(cygpath -u "$PY_INC")
           PY_LIB_U=$(cygpath -u "$PY_LIB")
@@ -115,43 +131,45 @@ jobs:
             -DPYTHON_INCLUDE_PATH="$PY_INC_U" \
             -DPYTHON_LIBRARY="$PY_LIB_U"
           cmake --build build -j $(nproc)
-          cmake --install build --prefix "$PY_ROOT_U"
+          cmake --install build --prefix "$DEPS_U"
 
       - name: Stage DLLs next to Python module
         shell: msys2 {0}
         run: |
           PY_ROOT_U=$(cygpath -u "$PY_ROOT")
-          cp /mingw64/bin/*.dll "$PY_ROOT_U"/python/ 2>/dev/null || true
-          cp "$PY_ROOT_U"/bin/*.dll "$PY_ROOT_U"/python/ 2>/dev/null || true
+          DEPS_U=$(cygpath -u "$GITHUB_WORKSPACE")/deps
+          cp "$DEPS_U"/bin/*.dll "$DEPS_U"/python/ 2>/dev/null || true
+          cp /mingw64/bin/*.dll "$DEPS_U"/python/ 2>/dev/null || true
           echo "--- ldd _openshot.pyd (missing DLLs if any) ---"
-          ldd "$PY_ROOT_U"/python/_openshot.pyd | grep -i "not found" || echo "all DLL deps resolved"
+          ldd "$DEPS_U"/python/_openshot.pyd | grep -i "not found" || echo "all DLL deps resolved"
           echo "--- _openshot.pyd diagnostics ---"
-          ls -la "$PY_ROOT_U"/python/_openshot.pyd
-          file "$PY_ROOT_U"/python/_openshot.pyd
-          objdump -p "$PY_ROOT_U"/python/_openshot.pyd | grep "DLL Name:" | sort -u
+          ls -la "$DEPS_U"/python/_openshot.pyd
+          file "$DEPS_U"/python/_openshot.pyd
+          objdump -p "$DEPS_U"/python/_openshot.pyd | grep "DLL Name:" | sort -u
           echo "--- recursive missing-DLL check (staged + System32) ---"
-          for dll in "$PY_ROOT_U"/python/*.dll; do
+          for dll in "$DEPS_U"/python/*.dll; do
             objdump -p "$dll" 2>/dev/null | grep "DLL Name:" | awk '{print $3}' | sort -u | while read -r dep; do
-              if [ ! -f "$PY_ROOT_U/python/$dep" ] && [ ! -f "/c/Windows/System32/$dep" ]; then
+              if [ ! -f "$DEPS_U/python/$dep" ] && [ ! -f "/c/Windows/System32/$dep" ]; then
                 echo "REAL-MISSING: $dep (needed by $(basename $dll))"
               fi
             done
           done | sort -u | head -20
           echo "--- staged count ---"
-          ls "$PY_ROOT_U"/python/*.dll | wc -l
+          ls "$DEPS_U"/python/*.dll | wc -l
 
           echo "=== DLL names in pyd import table (hidden chars shown) ==="
-          objdump -p "$PY_ROOT_U"/python/_openshot.pyd | grep "DLL Name:" | cat -A
+          objdump -p "$DEPS_U"/python/_openshot.pyd | grep "DLL Name:" | cat -A
           echo "=== libopenshot.dll internal name (hidden chars shown) ==="
           objdump -p "$PY_ROOT_U"/python/libopenshot.dll | grep -m1 -A1 "Export Table" | cat -A
           echo "=== staged filenames (hidden chars shown) ==="
-          ls "$PY_ROOT_U"/python/ | grep -i "openshot\|jsoncpp" | cat -A
+          ls "$DEPS_U"/python/ | grep -i "openshot\|jsoncpp" | cat -A
           echo "=== pyopenshot link command ==="
           echo "=== pefile strict PE validation ==="
           "$PY_ROOT_U"/python.exe -m pip install -q pefile 2>&1 | tail -1
           "$PY_ROOT_U"/python.exe - <<'PYEOF2'
           import pefile, os
-          pyd = os.path.join(r'C:\hostedtoolcache\windows\Python\3.11.9\x64', 'python', '_openshot.pyd')
+          import os as _os
+          pyd = _os.path.join(_os.environ['GITHUB_WORKSPACE'], 'deps', 'python', '_openshot.pyd')
           try:
               pe = pefile.PE(pyd)
               print('PE parse OK, sections:', len(pe.sections))
@@ -168,8 +186,8 @@ jobs:
       - name: Verify openshot import
         shell: pwsh
         run: |
-          $env:PATH = "$env:PY_ROOT;$env:PY_ROOT\bin;$env:RUNNER_TEMP\msys64\mingw64\bin;$env:PATH"
-          $env:PYTHONPATH = "$env:PY_ROOT\\python"
+          $env:PATH = "$env:GITHUB_WORKSPACE\deps\python;$env:GITHUB_WORKSPACE\deps\bin;$env:PY_ROOT;$env:PY_ROOT\bin;$env:RUNNER_TEMP\msys64\mingw64\bin;$env:PATH"
+          $env:PYTHONPATH = "$env:GITHUB_WORKSPACE\\deps\\python"
           & $env:PY_EXE -c "import sys; print('python:', sys.version)"
           & $env:PY_EXE -c "import openshot; print('openshot OK:', openshot.__file__)"
       - name: Pinpoint failing DLL
@@ -178,7 +196,7 @@ jobs:
         run: |
           $py = @'
           import os, ctypes
-          d = os.path.join(os.environ['PY_ROOT'], 'python')
+          d = os.path.join(os.environ['GITHUB_WORKSPACE'], 'deps', 'python')
           for x in ['libgcc_s_seh-1.dll','libwinpthread-1.dll','libstdc++-6.dll','libjsoncpp-27.dll','libopenshot-audio.dll','Qt6Core.dll','Qt6Gui.dll','libopenshot.dll']:
               p = os.path.join(d, x)
               try:
@@ -195,14 +213,18 @@ jobs:
         shell: pwsh
         run: |
           cd eclipse-pro
-          $env:PATH = "$env:PY_ROOT;$env:PY_ROOT\\bin;$env:RUNNER_TEMP\\msys64\\mingw64\\bin;$env:PATH"
-          $env:PYTHONPATH = "$env:PY_ROOT\\python"
+          $env:PATH = "$env:GITHUB_WORKSPACE\\deps\\bin;$env:PY_ROOT;$env:PY_ROOT\\bin;$env:RUNNER_TEMP\\msys64\\mingw64\\bin;$env:PATH"
+          $env:PYTHONPATH = "$env:GITHUB_WORKSPACE\\deps\\python"
           & $env:PY_EXE -m cx_Freeze --script src/launch.py --target-dir dist --target-name EclipsePro --base console
 
       - name: Bundle DLLs
         shell: msys2 {0}
         run: |
           PY_ROOT_U=$(cygpath -u "$PY_ROOT")
+          DEPS_U=$(cygpath -u "$GITHUB_WORKSPACE")/deps
+          for f in "$DEPS_U"/bin/*.dll; do
+            case "$(basename "$f")" in Qt6*.dll) continue;; *) cp "$f" eclipse-pro/dist/ 2>/dev/null || true;; esac
+          done
           # NOTE: exclude Qt6*.dll from manual bundling - cx_Freeze already bundles
           # PyQt6's official Qt DLLs; MinGW's Qt6 DLLs would shadow them and cause
           # "procedure not found" (wrong Qt version loaded for PyQt6)
