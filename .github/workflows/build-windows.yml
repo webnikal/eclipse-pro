@@ -167,27 +167,10 @@ jobs:
       - name: Verify openshot import
         shell: pwsh
         run: |
-          $env:PATH = "$env:PY_ROOT\bin;$env:RUNNER_TEMP\msys64\mingw64\bin;$env:PATH"
-          $env:PYTHONPATH = "$env:PY_ROOT\python"
-          $py = @'
-          import os, ctypes
-          d = os.path.join(os.environ['PY_ROOT'], 'python')
-          os.add_dll_directory(d)
-          pyd = os.path.join(d, '_openshot.pyd')
-          print('pyd exists:', os.path.exists(pyd), 'size:', os.path.getsize(pyd))
-          k32 = ctypes.WinDLL('kernel32', use_last_error=True)
-          h = k32.LoadLibraryExW(pyd, None, 0x00000002)
-          print('AS_DATAFILE handle:', h, 'err:', ctypes.get_last_error())
-          if h: k32.FreeLibrary(h)
-          ctypes.set_last_error(0)
-          try:
-              h2 = ctypes.WinDLL(pyd)
-              print('PLAIN-LOAD-OK:', h2._handle)
-          except Exception as e:
-              print('PLAIN-LOAD-FAIL:', e, 'winerr:', ctypes.get_last_error())
-          '@
-          $py | Out-File -Encoding ascii "$env:RUNNER_TEMP\verify2.py"
-          python "$env:RUNNER_TEMP\verify2.py"
+          $env:PATH = "$env:PY_ROOT;$env:PY_ROOT\bin;$env:RUNNER_TEMP\msys64\mingw64\bin;$env:PATH"
+          $env:PYTHONPATH = "$env:PY_ROOT\\python"
+          & $env:PY_EXE -c "import sys; print('python:', sys.version)"
+          & $env:PY_EXE -c "import openshot; print('openshot OK:', openshot.__file__)"
       - name: Pinpoint failing DLL
         if: failure()
         shell: pwsh
@@ -211,9 +194,9 @@ jobs:
         shell: pwsh
         run: |
           cd eclipse-pro
-          $env:PATH = "$env:PY_ROOT\bin;$env:RUNNER_TEMP\msys64\mingw64\bin;$env:PATH"
-          $env:PYTHONPATH = "$env:PY_ROOT\python"
-          python -m cx_Freeze src/launch.py --target-dir dist --target-name EclipsePro --base console
+          $env:PATH = "$env:PY_ROOT;$env:PY_ROOT\\bin;$env:RUNNER_TEMP\\msys64\\mingw64\\bin;$env:PATH"
+          $env:PYTHONPATH = "$env:PY_ROOT\\python"
+          & $env:PY_EXE -m cx_Freeze src/launch.py --target-dir dist --target-name EclipsePro --base console
 
       - name: Bundle DLLs
         shell: msys2 {0}
