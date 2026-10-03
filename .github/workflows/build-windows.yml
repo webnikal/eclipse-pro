@@ -119,7 +119,8 @@ jobs:
       - name: Verify openshot import
         shell: pwsh
         run: |
-          $env:PATH = "$env:PY_ROOT\bin;$env:PATH"
+          $env:PATH = "$env:PY_ROOT\bin;$env:RUNNER_TEMP\msys64\mingw64\bin;$env:PATH"
+          $env:PYTHONPATH = "$env:PY_ROOT\python"
           python -c "import openshot; print('openshot OK:', openshot.__file__)"
 
       # ---------- 7. Freeze to exe ----------
@@ -127,7 +128,8 @@ jobs:
         shell: pwsh
         run: |
           cd eclipse-pro
-          $env:PATH = "$env:PY_ROOT\bin;$env:PATH"
+          $env:PATH = "$env:PY_ROOT\bin;$env:RUNNER_TEMP\msys64\mingw64\bin;$env:PATH"
+          $env:PYTHONPATH = "$env:PY_ROOT\python"
           python -m cx_Freeze src/launch.py --target-dir dist --target-name EclipsePro --base console
 
       - name: Bundle DLLs
