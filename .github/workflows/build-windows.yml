@@ -146,6 +146,21 @@ jobs:
           echo "=== staged filenames (hidden chars shown) ==="
           ls "$PY_ROOT_U"/python/ | grep -i "openshot\|jsoncpp" | cat -A
           echo "=== pyopenshot link command ==="
+          echo "=== pefile strict PE validation ==="
+          "$PY_ROOT_U"/python.exe -m pip install -q pefile 2>&1 | tail -1
+          "$PY_ROOT_U"/python.exe - <<'PYEOF2'
+          import pefile, os
+          pyd = os.path.join(r'C:\hostedtoolcache\windows\Python\3.11.9\x64', 'python', '_openshot.pyd')
+          try:
+              pe = pefile.PE(pyd)
+              print('PE parse OK, sections:', len(pe.sections))
+              print('import descriptors:', len(pe.DIRECTORY_ENTRY_IMPORT))
+              for e in pe.DIRECTORY_ENTRY_IMPORT:
+                  dll = e.dll.decode(errors='replace')
+                  print('  IMPORT-DLL:', repr(dll))
+          except Exception as ex:
+              print('PEFILE-FAIL:', ex)
+          PYEOF2
           RTU=$(cygpath -u "$RUNNER_TEMP")
           find "$RTU" -name "link.txt" -path "*pyopenshot*" 2>/dev/null | head -2 | while read -r f; do echo "--- $f"; tr ' ' '\n' < "$f" | grep -i "dll\|libopenshot" | head -20; done
 
@@ -159,23 +174,20 @@ jobs:
           d = os.path.join(os.environ['PY_ROOT'], 'python')
           os.add_dll_directory(d)
           pyd = os.path.join(d, '_openshot.pyd')
-          for x in ['libgcc_s_seh-1.dll','libwinpthread-1.dll','libstdc++-6.dll','libjsoncpp-27.dll','libopenshot-audio.dll','Qt6Core.dll','Qt6Gui.dll','libopenshot.dll']:
-              ctypes.WinDLL(os.path.join(d, x))
-          print('deps preloaded')
+          print('pyd exists:', os.path.exists(pyd), 'size:', os.path.getsize(pyd))
+          k32 = ctypes.WinDLL('kernel32', use_last_error=True)
+          h = k32.LoadLibraryExW(pyd, None, 0x00000002)
+          print('AS_DATAFILE handle:', h, 'err:', ctypes.get_last_error())
+          if h: k32.FreeLibrary(h)
+          ctypes.set_last_error(0)
           try:
-              h = ctypes.WinDLL(pyd)
-              print('PYD-CTYPES-OK handle:', h._handle)
+              h2 = ctypes.WinDLL(pyd)
+              print('PLAIN-LOAD-OK:', h2._handle)
           except Exception as e:
-              print('PYD-CTYPES-FAIL:', e)
-          try:
-              import openshot
-              print('IMPORT-OK:', openshot.__file__)
-          except Exception as e:
-              print('IMPORT-FAIL:', e)
-              raise SystemExit(1)
+              print('PLAIN-LOAD-FAIL:', e, 'winerr:', ctypes.get_last_error())
           '@
-          $py | Out-File -Encoding ascii "$env:RUNNER_TEMP\verify.py"
-          python "$env:RUNNER_TEMP\verify.py"
+          $py | Out-File -Encoding ascii "$env:RUNNER_TEMP\verify2.py"
+          python "$env:RUNNER_TEMP\verify2.py"
       - name: Pinpoint failing DLL
         if: failure()
         shell: pwsh
