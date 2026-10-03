@@ -124,13 +124,17 @@ jobs:
           cp "$PY_ROOT_U"/bin/*.dll "$PY_ROOT_U"/python/ 2>/dev/null || true
           echo "--- ldd _openshot.pyd (missing DLLs if any) ---"
           ldd "$PY_ROOT_U"/python/_openshot.pyd | grep -i "not found" || echo "all DLL deps resolved"
+          echo "--- _openshot.pyd diagnostics ---"
+          ls -la "$PY_ROOT_U"/python/_openshot.pyd
+          file "$PY_ROOT_U"/python/_openshot.pyd
+          objdump -p "$PY_ROOT_U"/python/_openshot.pyd | grep "DLL Name:" | sort -u
 
       - name: Verify openshot import
         shell: pwsh
         run: |
           $env:PATH = "$env:PY_ROOT\bin;$env:RUNNER_TEMP\msys64\mingw64\bin;$env:PATH"
           $env:PYTHONPATH = "$env:PY_ROOT\python"
-          python -c "import openshot; print('openshot OK:', openshot.__file__)"
+          python -c "import os; os.add_dll_directory(os.path.join(os.environ['PY_ROOT'], 'python')); os.add_dll_directory(os.path.join(os.environ['RUNNER_TEMP'], 'msys64', 'mingw64', 'bin')); import openshot; print('openshot OK:', openshot.__file__)"
 
       # ---------- 7. Freeze to exe ----------
       - name: Freeze EclipsePro.exe
