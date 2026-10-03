@@ -746,7 +746,7 @@ index dd949ed..5a0a50d 100644
     <property name="menuRole">
      <enum>QAction::AboutRole</enum>
 diff --git a/src/classes/app.py b/src/classes/app.py
-index 746fa72..5fdf624 100644
+index 746fa72..e605b27 100644
 --- a/src/classes/app.py
 +++ b/src/classes/app.py
 @@ -238,6 +238,18 @@ class OpenShotApp(QApplication):
@@ -768,21 +768,27 @@ index 746fa72..5fdf624 100644
          # Init translation system
          language.init_language()
          sentry.set_tag("locale", info.CURRENT_LANGUAGE)
-@@ -288,6 +300,14 @@ class OpenShotApp(QApplication):
+@@ -288,8 +300,19 @@ class OpenShotApp(QApplication):
          # Connect our exit signals
          self.aboutToQuit.connect(self.cleanup)
  
-+        # Eclipse Pro: close splash as the main window appears
+-        # Show the main window using the state restored from saveGeometry().
++        # Eclipse Pro: show the main window FIRST, then close the splash.
++        # (Closing the splash while it's the only visible window makes
++        # QApplication quit via quitOnLastWindowClosed.)
+         self._show_main_window(self.window)
++        self.processEvents()
++
++        # Eclipse Pro: close splash now that the main window is visible
 +        try:
 +            if getattr(self, "_eclipse_splash", None):
 +                self._eclipse_splash.close_splash()
 +                self._eclipse_splash = None
 +        except Exception:
 +            pass
-+
-         # Show the main window using the state restored from saveGeometry().
-         self._show_main_window(self.window)
  
+         # On Android, prompt for All Files Access once the window is visible so
+         # the permission is in place before the user first taps Import Files.
 diff --git a/eclipse-pro/src/classes/eclipse_splash.py b/src/classes/eclipse_splash.py
 new file mode 100644
 index 0000000..cad6fa9
