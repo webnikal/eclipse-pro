@@ -220,7 +220,7 @@ jobs:
           cd eclipse-pro
           $env:PATH = "$env:GITHUB_WORKSPACE\\deps\\bin;$env:PY_ROOT;$env:PY_ROOT\\bin;$env:RUNNER_TEMP\\msys64\\mingw64\\bin;$env:PATH"
           $env:PYTHONPATH = "$env:GITHUB_WORKSPACE\\deps\\python"
-          & $env:PY_EXE -m cx_Freeze --script src/launch.py --target-dir dist --target-name EclipsePro --base console
+          & $env:PY_EXE -m cx_Freeze --script src/launch.py --target-dir dist --target-name EclipsePro --base gui
 
       # ---------- 7a. Bundle app data files ----------
       # cx_Freeze only bundles .py files; copy data dirs (settings, language, etc.)
