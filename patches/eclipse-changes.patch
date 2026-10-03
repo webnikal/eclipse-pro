@@ -874,3 +874,80 @@ index 0000000..cad6fa9
 +        except Exception:
 +            pass
 +        self.close()
+diff --git a/src/themes/base.py b/src/themes/base.py
+index 23f8f96..2ac74bb 100755
+--- a/src/themes/base.py
++++ b/src/themes/base.py
+@@ -400,9 +400,27 @@ QMessageBox QDialogButtonBox#qt_msgbox_buttonbox QPushButton[dialogRole="cancel"
+             except Exception:
+                 log.warning("Error setting Ubuntu-R.ttf QFont", exc_info=1)
+ 
++        # Eclipse Pro debug marker
++        try:
++            _edbg = open(os.path.join(self.app.info.USER_PATH, "eclipse_debug.log"), "a")
++            _edbg.write("MARKER: theme/font-done\n")
++            _edbg.flush()
++            _edbg.close()
++        except Exception:
++            pass
++
+         # Load Icon theme if not set by OS
+         ui_util.load_icon_theme()
+ 
++        # Eclipse Pro debug marker
++        try:
++            _edbg = open(os.path.join(self.app.info.USER_PATH, "eclipse_debug.log"), "a")
++            _edbg.write("MARKER: theme/icon-theme-done\n")
++            _edbg.flush()
++            _edbg.close()
++        except Exception:
++            pass
++
+         # Set dock widget content margins to 0
+         self.set_dock_margins()
+         # Let the ruler and tracks meet the dock edges in every theme, while
+@@ -460,9 +478,27 @@ QMessageBox QDialogButtonBox#qt_msgbox_buttonbox QPushButton[dialogRole="cancel"
+         ]
+         self.set_toolbar_buttons(self.app.window.videoToolbar, icon_size=24, settings=toolbar_buttons)
+ 
++
++        # Eclipse Pro debug marker
++        try:
++            _edbg = open(os.path.join(self.app.info.USER_PATH, "eclipse_debug.log"), "a")
++            _edbg.write("MARKER: theme/toolbars-done\n")
++            _edbg.flush()
++            _edbg.close()
++        except Exception:
++            pass
+         # Init icons from theme name
+         ui_util.init_ui(self.app.window)
+ 
++
++        # Eclipse Pro debug marker
++        try:
++            _edbg = open(os.path.join(self.app.info.USER_PATH, "eclipse_debug.log"), "a")
++            _edbg.write("MARKER: theme/theme-done\n")
++            _edbg.flush()
++            _edbg.close()
++        except Exception:
++            pass
+         # Emit signal
+         self.app.window.ThemeChangedSignal.emit(self)
+ 
+diff --git a/src/windows/main_window.py b/src/windows/main_window.py
+index 12a819a..ede1159 100644
+--- a/src/windows/main_window.py
++++ b/src/windows/main_window.py
+@@ -5690,6 +5690,12 @@ class MainWindow(updates.UpdateWatcher, QMainWindow):
+         # Apply theme
+         theme_name = s.get("theme")
+         theme = get_app().theme_manager.apply_theme(theme_name)
++        try:
++            _edbg2 = open(os.path.join(info.USER_PATH, "eclipse_debug.log"), "a")
++            _edbg2.write("MARKER: mainwindow/theme-applied\n")
++            _edbg2.flush(); _edbg2.close()
++        except Exception:
++            pass
+         s.set("theme", theme.name)
+ 
+         # Restore only the outer geometry before mapping. Dock state is applied
