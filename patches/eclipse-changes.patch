@@ -745,10 +745,10 @@ index dd949ed..5a0a50d 100644
     </property>
     <property name="menuRole">
      <enum>QAction::AboutRole</enum>
-diff --git a/openshot-qt/src/classes/app.py b/eclipse-pro/src/classes/app.py
+diff --git a/src/classes/app.py b/src/classes/app.py
 index 746fa72..5fdf624 100644
---- a/openshot-qt/src/classes/app.py
-+++ b/eclipse-pro/src/classes/app.py
+--- a/src/classes/app.py
++++ b/src/classes/app.py
 @@ -238,6 +238,18 @@ class OpenShotApp(QApplication):
          info = self.info
          log = self.log
@@ -783,11 +783,11 @@ index 746fa72..5fdf624 100644
          # Show the main window using the state restored from saveGeometry().
          self._show_main_window(self.window)
  
-diff --git a/eclipse-pro/src/classes/eclipse_splash.py b/eclipse-pro/src/classes/eclipse_splash.py
+diff --git a/eclipse-pro/src/classes/eclipse_splash.py b/src/classes/eclipse_splash.py
 new file mode 100644
 index 0000000..cad6fa9
 --- /dev/null
-+++ b/eclipse-pro/src/classes/eclipse_splash.py
++++ b/src/classes/eclipse_splash.py
 @@ -0,0 +1,53 @@
 +"""Eclipse Pro animated splash screen (frameless, no title bar)."""
 +
