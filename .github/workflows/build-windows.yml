@@ -218,8 +218,9 @@ jobs:
       - name: Build installer
         shell: pwsh
         run: |
-          & "$env:RUNNER_TEMP\msys64\mingw64\bin\makensis.exe" "$env:GITHUB_WORKSPACE\packaging\eclipse-pro.nsi"
-          Get-Item "$env:GITHUB_WORKSPACE\EclipsePro-Setup.exe" | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
+          # Repo files are not checked out on runner; fetch .nsi like the ffmpeg patch
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/packaging/eclipse-pro.nsi" -OutFile "$env:RUNNER_TEMP\\eclipse-pro.nsi"
+          & "$env:RUNNER_TEMP\\msys64\\mingw64\\bin\\makensis.exe" "$env:RUNNER_TEMP\\eclipse-pro.nsi"
 
       # ---------- 9. Upload exe ----------
       - name: Upload EclipsePro
