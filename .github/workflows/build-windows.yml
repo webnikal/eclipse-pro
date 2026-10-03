@@ -196,7 +196,7 @@ jobs:
           cd eclipse-pro
           $env:PATH = "$env:PY_ROOT;$env:PY_ROOT\\bin;$env:RUNNER_TEMP\\msys64\\mingw64\\bin;$env:PATH"
           $env:PYTHONPATH = "$env:PY_ROOT\\python"
-          & $env:PY_EXE -m cx_Freeze src/launch.py --target-dir dist --target-name EclipsePro --base console
+          & $env:PY_EXE -m cx_Freeze --script src/launch.py --target-dir dist --target-name EclipsePro --base console
 
       - name: Bundle DLLs
         shell: msys2 {0}
