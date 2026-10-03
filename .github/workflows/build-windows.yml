@@ -218,6 +218,17 @@ jobs:
           $env:PYTHONPATH = "$env:GITHUB_WORKSPACE\\deps\\python"
           & $env:PY_EXE -m cx_Freeze --script src/launch.py --target-dir dist --target-name EclipsePro --base console
 
+      # ---------- 7a. Bundle app data files ----------
+      # cx_Freeze only bundles .py files; copy data dirs (settings, language, etc.)
+      - name: Bundle app data files
+        shell: msys2 {0}
+        run: |
+          for d in settings language resources profiles images presets colors; do
+            mkdir -p "eclipse-pro/dist/lib/$d"
+            cp -r "eclipse-pro/src/$d/"* "eclipse-pro/dist/lib/$d/" 2>/dev/null || true
+            echo "$d: $(ls "eclipse-pro/dist/lib/$d" | wc -l) files staged"
+          done
+
       # ---------- 7b. Force PyQt6's official Qt6 DLLs ----------
       # cx_Freeze sometimes bundles MinGW's Qt6 (found via PATH) instead of
       # PyQt6's own -> "specified procedure could not be found" at startup.
