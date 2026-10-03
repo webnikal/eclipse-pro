@@ -79,7 +79,7 @@ jobs:
           git init eclipse-pro
           cd eclipse-pro
           git remote add origin https://github.com/OpenShot/openshot-qt.git
-          git fetch --depth 1 origin ca807410dc2dfbd5be81cf2c71477f4425b41cc7
+          git fetch --depth 1 origin 56584c7127568b66dd406cd6d82634e62601eaaf
           git checkout FETCH_HEAD
           # Eclipse changes patch (temporary link, expires ~48h after 2026-10-03)
           Invoke-WebRequest -Uri "https://muse.ai/files/1365194086677020/1838280244025204/ng97x84fwuqscg3qnpeksdz2/eclipse-changes.patch" -OutFile eclipse.patch
