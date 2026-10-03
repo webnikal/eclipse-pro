@@ -9,7 +9,7 @@
 !define EXE "EclipsePro.exe"
 
 Name "${APPNAME} ${VERSION}"
-OutFile "EclipsePro-Setup.exe"
+OutFile "${OUTFILE}"
 InstallDir "$PROGRAMFILES\${APPNAME}"
 RequestExecutionLevel admin
 
