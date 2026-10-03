@@ -202,8 +202,15 @@ jobs:
         shell: msys2 {0}
         run: |
           PY_ROOT_U=$(cygpath -u "$PY_ROOT")
-          cp "$PY_ROOT_U"/bin/*.dll eclipse-pro/dist/ 2>/dev/null || true
-          cp /mingw64/bin/*.dll eclipse-pro/dist/ 2>/dev/null || true
+          # NOTE: exclude Qt6*.dll from manual bundling - cx_Freeze already bundles
+          # PyQt6's official Qt DLLs; MinGW's Qt6 DLLs would shadow them and cause
+          # "procedure not found" (wrong Qt version loaded for PyQt6)
+          for f in "$PY_ROOT_U"/bin/*.dll; do
+            case "$(basename "$f")" in Qt6*.dll) continue;; *) cp "$f" eclipse-pro/dist/ 2>/dev/null || true;; esac
+          done
+          for f in /mingw64/bin/*.dll; do
+            case "$(basename "$f")" in Qt6*.dll) continue;; *) cp "$f" eclipse-pro/dist/ 2>/dev/null || true;; esac
+          done
           ls eclipse-pro/dist | head -20
 
       # ---------- 8. Upload exe ----------
