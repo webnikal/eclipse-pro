@@ -116,6 +116,15 @@ jobs:
           cmake --build build -j $(nproc)
           cmake --install build --prefix "$PY_ROOT_U"
 
+      - name: Stage DLLs next to Python module
+        shell: msys2 {0}
+        run: |
+          PY_ROOT_U=$(cygpath -u "$PY_ROOT")
+          cp /mingw64/bin/*.dll "$PY_ROOT_U"/python/ 2>/dev/null || true
+          cp "$PY_ROOT_U"/bin/*.dll "$PY_ROOT_U"/python/ 2>/dev/null || true
+          echo "--- ldd _openshot.pyd (missing DLLs if any) ---"
+          ldd "$PY_ROOT_U"/python/_openshot.pyd | grep -i "not found" || echo "all DLL deps resolved"
+
       - name: Verify openshot import
         shell: pwsh
         run: |
