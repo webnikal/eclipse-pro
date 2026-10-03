@@ -220,7 +220,7 @@ jobs:
         run: |
           # Repo files are not checked out on runner; fetch .nsi like the ffmpeg patch
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/packaging/eclipse-pro.nsi" -OutFile "$env:RUNNER_TEMP\\eclipse-pro.nsi"
-          & "$env:RUNNER_TEMP\\msys64\\mingw64\\bin\\makensis.exe" "$env:RUNNER_TEMP\\eclipse-pro.nsi"
+          & "$env:RUNNER_TEMP\\msys64\\mingw64\\bin\\makensis.exe" "/DDISTDIR=$env:GITHUB_WORKSPACE\\eclipse-pro\\dist" "$env:RUNNER_TEMP\\eclipse-pro.nsi"
 
       # ---------- 9. Upload exe ----------
       - name: Upload EclipsePro
