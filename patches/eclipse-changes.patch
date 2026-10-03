@@ -746,14 +746,17 @@ index dd949ed..5a0a50d 100644
     <property name="menuRole">
      <enum>QAction::AboutRole</enum>
 diff --git a/src/classes/app.py b/src/classes/app.py
-index 746fa72..e605b27 100644
+index 746fa72..4fa0b9c 100644
 --- a/src/classes/app.py
 +++ b/src/classes/app.py
-@@ -238,6 +238,18 @@ class OpenShotApp(QApplication):
+@@ -238,6 +238,21 @@ class OpenShotApp(QApplication):
          info = self.info
          log = self.log
  
 +        # Eclipse Pro: show animated splash screen (frameless) while loading
++        # Disable quit-on-last-window-closed: the splash is a temporary window
++        # and must never cause the app to quit when it closes.
++        self.setQuitOnLastWindowClosed(False)
 +        try:
 +            from classes.eclipse_splash import EclipseSplash
 +            splash_gif = os.path.join(info.IMAGES_PATH, "eclipse-splash.gif")
@@ -768,7 +771,26 @@ index 746fa72..e605b27 100644
          # Init translation system
          language.init_language()
          sentry.set_tag("locale", info.CURRENT_LANGUAGE)
-@@ -288,8 +300,19 @@ class OpenShotApp(QApplication):
+@@ -272,6 +287,18 @@ class OpenShotApp(QApplication):
+         # Track which dockable window received a context menu
+         self.context_menu_object = None
+ 
++        # Eclipse Pro debug markers (unbuffered, to diagnose startup exit)
++        try:
++            _dbg_path = os.path.join(info.USER_PATH, "eclipse_debug.log")
++            def _dbg(msg):
++                with open(_dbg_path, "a") as f:
++                    f.write(msg + "\n")
++                    f.flush()
++            _dbg("MARKER: before MainWindow")
++        except Exception:
++            def _dbg(msg):
++                pass
++
+         # Create main window
+         from windows.main_window import MainWindow
+         log.debug("Creating main interface window")
+@@ -288,8 +315,23 @@ class OpenShotApp(QApplication):
          # Connect our exit signals
          self.aboutToQuit.connect(self.cleanup)
  
@@ -776,8 +798,11 @@ index 746fa72..e605b27 100644
 +        # Eclipse Pro: show the main window FIRST, then close the splash.
 +        # (Closing the splash while it's the only visible window makes
 +        # QApplication quit via quitOnLastWindowClosed.)
++        _dbg("MARKER: MainWindow created, showing")
          self._show_main_window(self.window)
++        _dbg("MARKER: main window shown, processing events")
 +        self.processEvents()
++        _dbg("MARKER: closing splash")
 +
 +        # Eclipse Pro: close splash now that the main window is visible
 +        try:
@@ -786,6 +811,7 @@ index 746fa72..e605b27 100644
 +                self._eclipse_splash = None
 +        except Exception:
 +            pass
++        _dbg("MARKER: splash closed, gui() done")
  
          # On Android, prompt for All Files Access once the window is visible so
          # the permission is in place before the user first taps Import Files.
