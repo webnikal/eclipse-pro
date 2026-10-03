@@ -139,6 +139,16 @@ jobs:
           echo "--- staged count ---"
           ls "$PY_ROOT_U"/python/*.dll | wc -l
 
+          echo "=== DLL names in pyd import table (hidden chars shown) ==="
+          objdump -p "$PY_ROOT_U"/python/_openshot.pyd | grep "DLL Name:" | cat -A
+          echo "=== libopenshot.dll internal name (hidden chars shown) ==="
+          objdump -p "$PY_ROOT_U"/python/libopenshot.dll | grep -m1 -A1 "Export Table" | cat -A
+          echo "=== staged filenames (hidden chars shown) ==="
+          ls "$PY_ROOT_U"/python/ | grep -i "openshot\|jsoncpp" | cat -A
+          echo "=== pyopenshot link command ==="
+          RTU=$(cygpath -u "$RUNNER_TEMP")
+          find "$RTU" -name "link.txt" -path "*pyopenshot*" 2>/dev/null | head -2 | while read -r f; do echo "--- $f"; tr ' ' '\n' < "$f" | grep -i "dll\|libopenshot" | head -20; done
+
       - name: Verify openshot import
         shell: pwsh
         run: |
