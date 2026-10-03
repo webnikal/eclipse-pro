@@ -53,11 +53,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install PyQt6 cx_Freeze
           $pyExe = (Get-Command python).Source
-          $pyRoot = Split-Path (Split-Path $pyExe)
+          $pyRoot = Split-Path $pyExe
           $pyVer = python -c "import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')"
           "PY_EXE=$pyExe" >> $env:GITHUB_ENV
           "PY_ROOT=$pyRoot" >> $env:GITHUB_ENV
-          "PY_INC=$pyRoot\Include" >> $env:GITHUB_ENV
+          "PY_INC=$pyRoot\include" >> $env:GITHUB_ENV
           "PY_LIB=$pyRoot\libs\python$pyVer.lib" >> $env:GITHUB_ENV
 
       # ---------- 3. Engine source ----------
@@ -111,6 +111,7 @@ jobs:
             -DOpenShotAudio_ROOT="$PWD/../libopenshot-audio/build" \
             -DPYTHON_EXECUTABLE="$PY_EXE_U" \
             -DPYTHON_INCLUDE_DIR="$PY_INC_U" \
+            -DPYTHON_INCLUDE_PATH="$PY_INC_U" \
             -DPYTHON_LIBRARY="$PY_LIB_U"
           cmake --build build -j $(nproc)
           cmake --install build --prefix "$PY_ROOT_U"
