@@ -746,7 +746,7 @@ index dd949ed..5a0a50d 100644
     <property name="menuRole">
      <enum>QAction::AboutRole</enum>
 diff --git a/src/classes/app.py b/src/classes/app.py
-index 746fa72..4fa0b9c 100644
+index 746fa72..1683889 100644
 --- a/src/classes/app.py
 +++ b/src/classes/app.py
 @@ -238,6 +238,21 @@ class OpenShotApp(QApplication):
@@ -771,7 +771,7 @@ index 746fa72..4fa0b9c 100644
          # Init translation system
          language.init_language()
          sentry.set_tag("locale", info.CURRENT_LANGUAGE)
-@@ -272,6 +287,18 @@ class OpenShotApp(QApplication):
+@@ -272,9 +287,48 @@ class OpenShotApp(QApplication):
          # Track which dockable window received a context menu
          self.context_menu_object = None
  
@@ -790,7 +790,37 @@ index 746fa72..4fa0b9c 100644
          # Create main window
          from windows.main_window import MainWindow
          log.debug("Creating main interface window")
-@@ -288,8 +315,23 @@ class OpenShotApp(QApplication):
++
++        # Eclipse Pro: black-box recorder for startup crashes. faulthandler
++        # dumps native crashes; excepthook logs Python tracebacks (both are
++        # invisible in the frozen --base gui build otherwise).
++        try:
++            import faulthandler as _fh
++            import traceback as _tb
++            import sys as _sys
++            _edbg_path2 = os.path.join(info.USER_PATH, "eclipse_debug.log")
++            _edbg_file2 = open(_edbg_path2, "a")
++            _edbg_file2.write("MARKER: blackbox-armed\n")
++            _edbg_file2.flush()
++            _fh.enable(file=_edbg_file2)
++            _orig_excepthook = _sys.excepthook
++
++            def _eclipse_excepthook(etype, evalue, etb):
++                try:
++                    _edbg_file2.write("PYTHON EXCEPTION:\n" + "".join(_tb.format_exception(etype, evalue, etb)))
++                    _edbg_file2.flush()
++                except Exception:
++                    pass
++                _orig_excepthook(etype, evalue, etb)
++
++            _sys.excepthook = _eclipse_excepthook
++        except Exception:
++            pass
++
+         self.window = MainWindow()
+ 
+         # Check for gui launch failures
+@@ -288,8 +342,23 @@ class OpenShotApp(QApplication):
          # Connect our exit signals
          self.aboutToQuit.connect(self.cleanup)
  
@@ -875,10 +905,50 @@ index 0000000..cad6fa9
 +            pass
 +        self.close()
 diff --git a/src/themes/base.py b/src/themes/base.py
-index 23f8f96..05d0166 100755
+index 23f8f96..6ad1718 100755
 --- a/src/themes/base.py
 +++ b/src/themes/base.py
-@@ -400,20 +400,65 @@ QMessageBox QDialogButtonBox#qt_msgbox_buttonbox QPushButton[dialogRole="cancel"
+@@ -300,12 +300,10 @@ QMessageBox QDialogButtonBox#qt_msgbox_buttonbox QPushButton[dialogRole="cancel"
+         """
+         from qt_api import QT_API, isdeleted
+ 
+-        # Clear toolbar without deleting actions on PySide6
+-        if QT_API == "pyside6":
+-            for action in list(toolbar.actions()):
+-                toolbar.removeAction(action)
+-        else:
+-            toolbar.clear()
++        # Clear toolbar without deleting actions (removeAction on all bindings;
++        # never toolbar.clear() in frozen builds)
++        for action in list(toolbar.actions()):
++            toolbar.removeAction(action)
+ 
+         # Set icon size
+         qsize_icon = QSize(icon_size, icon_size)
+@@ -351,11 +349,13 @@ QMessageBox QDialogButtonBox#qt_msgbox_buttonbox QPushButton[dialogRole="cancel"
+ 
+             # Create button from action
+             if button_action:
+-                if QT_API == "pyside6" and isdeleted(button_action):
++                if isdeleted(button_action):
+                     continue
+                 toolbar.addAction(button_action)
+                 button_action.setVisible(button_visible)
+                 button = toolbar.widgetForAction(button_action)
++                if button is None:
++                    continue
+                 button.setObjectName(f"tool-{button_action.objectName()}")
+                 if button_icon:
+                     qicon_instance = self.create_svg_icon(button_icon, qsize_icon)
+@@ -369,6 +369,7 @@ QMessageBox QDialogButtonBox#qt_msgbox_buttonbox QPushButton[dialogRole="cancel"
+ 
+     def apply_theme(self):
+         # Apply the stylesheet to the entire application
++        import traceback
+         from classes import info
+         from classes.logger import log
+         from qt_api import QFont, QFontDatabase
+@@ -400,69 +401,144 @@ QMessageBox QDialogButtonBox#qt_msgbox_buttonbox QPushButton[dialogRole="cancel"
              except Exception:
                  log.warning("Error setting Ubuntu-R.ttf QFont", exc_info=1)
  
@@ -932,6 +1002,52 @@ index 23f8f96..05d0166 100755
                       Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea):
              self.app.window.setTabPosition(area, QTabWidget.South)
  
+-        # Main toolbar buttons
+-        toolbar_buttons = [
+-            {"action": self.app.window.actionNew, "style": Qt.ToolButtonIconOnly},
+-            {"action": self.app.window.actionOpen, "style": Qt.ToolButtonIconOnly},
+-            {"action": self.app.window.actionSave, "style": Qt.ToolButtonIconOnly},
+-            {"divide": True},
+-            {"action": self.app.window.actionUndo, "style": Qt.ToolButtonIconOnly},
+-            {"action": self.app.window.actionRedo, "style": Qt.ToolButtonIconOnly},
+-            {"divide": True},
+-            {"action": self.app.window.actionImportFiles, "style": Qt.ToolButtonIconOnly},
+-            {"action": self.app.window.actionProfile, "style": Qt.ToolButtonIconOnly},
+-            {"action": self.app.window.actionFullscreen, "style": Qt.ToolButtonIconOnly},
+-            {"divide": True},
+-            {"action": self.app.window.actionExportVideo, "style": Qt.ToolButtonIconOnly},
+-        ]
+-        self.set_toolbar_buttons(self.app.window.toolBar, icon_size=24, settings=toolbar_buttons)
+-
+-        # Timeline toolbar buttons
+-        timeline_buttons = [
+-            {"action": self.app.window.actionAddTrack, "style": Qt.ToolButtonIconOnly},
+-            {"divide": True},
+-            {"action": self.app.window.actionSnappingTool, "style": Qt.ToolButtonIconOnly, "icon": ":/icons/Humanity/actions/custom/snap.svg"},
+-            {"action": self.app.window.actionTimingTool, "style": Qt.ToolButtonIconOnly, "icon": ":/icons/Humanity/actions/custom/timing.svg"},
+-            {"action": self.app.window.actionRazorTool, "style": Qt.ToolButtonIconOnly, "icon": ":/icons/Humanity/actions/16/edit-cut.svg"},
+-            {"divide": True},
+-            {"action": self.app.window.actionAddMarker, "style": Qt.ToolButtonIconOnly, "icon": ":/icons/actions/add_marker.svg"},
+-            {"action": self.app.window.actionPreviousMarker, "style": Qt.ToolButtonIconOnly},
+-            {"action": self.app.window.actionNextMarker, "style": Qt.ToolButtonIconOnly},
+-            {"action": self.app.window.actionCenterOnPlayhead, "style": Qt.ToolButtonIconOnly, "icon": ":/icons/Humanity/actions/custom/center-on-playhead.svg"},
+-            {"divide": True},
+-            {"widget": self.app.window.sliderZoomWidget}
+-        ]
+-        self.set_toolbar_buttons(self.app.window.timelineToolbar, icon_size=24, settings=timeline_buttons)
+-
+-        # Video toolbar
+-        toolbar_buttons = [
+-            {"expand": True},
+-            {"action": self.app.window.actionJumpStart, "style": Qt.ToolButtonIconOnly},
+-            {"action": self.app.window.actionRewind, "style": Qt.ToolButtonIconOnly},
+-            {"action": self.app.window.actionPlay, "style": Qt.ToolButtonIconOnly},
+-            {"action": self.app.window.actionFastForward, "style": Qt.ToolButtonIconOnly},
+-            {"action": self.app.window.actionJumpEnd, "style": Qt.ToolButtonIconOnly},
+-            {"expand": True}
+-        ]
+-        self.set_toolbar_buttons(self.app.window.videoToolbar, icon_size=24, settings=toolbar_buttons)
+-
 +        # Eclipse Pro debug marker
 +        try:
 +            _edbg = open(os.path.join(self.app.info.USER_PATH, "eclipse_debug.log"), "a")
@@ -941,22 +1057,73 @@ index 23f8f96..05d0166 100755
 +        except Exception:
 +            pass
 +
-         # Main toolbar buttons
-         toolbar_buttons = [
-             {"action": self.app.window.actionNew, "style": Qt.ToolButtonIconOnly},
-@@ -460,9 +505,27 @@ QMessageBox QDialogButtonBox#qt_msgbox_buttonbox QPushButton[dialogRole="cancel"
-         ]
-         self.set_toolbar_buttons(self.app.window.videoToolbar, icon_size=24, settings=toolbar_buttons)
- 
-+
-+        # Eclipse Pro debug marker
++        # Eclipse Pro: black-box around the toolbar rebuild section.
++        # A Python exception here is invisible in the frozen (--base gui)
++        # build, so log the full traceback to eclipse_debug.log.
 +        try:
-+            _edbg = open(os.path.join(self.app.info.USER_PATH, "eclipse_debug.log"), "a")
-+            _edbg.write("MARKER: theme/toolbars-done\n")
-+            _edbg.flush()
-+            _edbg.close()
++            # Main toolbar buttons
++            toolbar_buttons = [
++                {"action": self.app.window.actionNew, "style": Qt.ToolButtonIconOnly},
++                {"action": self.app.window.actionOpen, "style": Qt.ToolButtonIconOnly},
++                {"action": self.app.window.actionSave, "style": Qt.ToolButtonIconOnly},
++                {"divide": True},
++                {"action": self.app.window.actionUndo, "style": Qt.ToolButtonIconOnly},
++                {"action": self.app.window.actionRedo, "style": Qt.ToolButtonIconOnly},
++                {"divide": True},
++                {"action": self.app.window.actionImportFiles, "style": Qt.ToolButtonIconOnly},
++                {"action": self.app.window.actionProfile, "style": Qt.ToolButtonIconOnly},
++                {"action": self.app.window.actionFullscreen, "style": Qt.ToolButtonIconOnly},
++                {"divide": True},
++                {"action": self.app.window.actionExportVideo, "style": Qt.ToolButtonIconOnly},
++            ]
++            self.set_toolbar_buttons(self.app.window.toolBar, icon_size=24, settings=toolbar_buttons)
++
++            # Timeline toolbar buttons
++            timeline_buttons = [
++                {"action": self.app.window.actionAddTrack, "style": Qt.ToolButtonIconOnly},
++                {"divide": True},
++                {"action": self.app.window.actionSnappingTool, "style": Qt.ToolButtonIconOnly, "icon": ":/icons/Humanity/actions/custom/snap.svg"},
++                {"action": self.app.window.actionTimingTool, "style": Qt.ToolButtonIconOnly, "icon": ":/icons/Humanity/actions/custom/timing.svg"},
++                {"action": self.app.window.actionRazorTool, "style": Qt.ToolButtonIconOnly, "icon": ":/icons/Humanity/actions/16/edit-cut.svg"},
++                {"divide": True},
++                {"action": self.app.window.actionAddMarker, "style": Qt.ToolButtonIconOnly, "icon": ":/icons/actions/add_marker.svg"},
++                {"action": self.app.window.actionPreviousMarker, "style": Qt.ToolButtonIconOnly},
++                {"action": self.app.window.actionNextMarker, "style": Qt.ToolButtonIconOnly},
++                {"action": self.app.window.actionCenterOnPlayhead, "style": Qt.ToolButtonIconOnly, "icon": ":/icons/Humanity/actions/custom/center-on-playhead.svg"},
++                {"divide": True},
++                {"widget": self.app.window.sliderZoomWidget}
++            ]
++            self.set_toolbar_buttons(self.app.window.timelineToolbar, icon_size=24, settings=timeline_buttons)
++
++            # Video toolbar
++            toolbar_buttons = [
++                {"expand": True},
++                {"action": self.app.window.actionJumpStart, "style": Qt.ToolButtonIconOnly},
++                {"action": self.app.window.actionRewind, "style": Qt.ToolButtonIconOnly},
++                {"action": self.app.window.actionPlay, "style": Qt.ToolButtonIconOnly},
++                {"action": self.app.window.actionFastForward, "style": Qt.ToolButtonIconOnly},
++                {"action": self.app.window.actionJumpEnd, "style": Qt.ToolButtonIconOnly},
++                {"expand": True}
++            ]
++            self.set_toolbar_buttons(self.app.window.videoToolbar, icon_size=24, settings=toolbar_buttons)
++
++
++            # Eclipse Pro debug marker
++            try:
++                _edbg = open(os.path.join(self.app.info.USER_PATH, "eclipse_debug.log"), "a")
++                _edbg.write("MARKER: theme/toolbars-done\n")
++                _edbg.flush()
++                _edbg.close()
++            except Exception:
++                pass
 +        except Exception:
-+            pass
++            try:
++                _edbg = open(os.path.join(self.app.info.USER_PATH, "eclipse_debug.log"), "a")
++                _edbg.write("PYTHON EXCEPTION in toolbar section:\n" + traceback.format_exc())
++                _edbg.flush()
++                _edbg.close()
++            except Exception:
++                pass
          # Init icons from theme name
          ui_util.init_ui(self.app.window)
  
