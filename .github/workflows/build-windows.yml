@@ -72,6 +72,14 @@ jobs:
           cd libopenshot
           git apply /tmp/ffmpeg7.patch
           cd ..
+          # Eclipse Pro: ABI-safe preview frame API (CopyPreviewFrame). The bundled
+          # libopenshot is built with Qt5/MinGW while the app runs PyQt6, so passing
+          # QWidgets across that boundary crashes (access violation in SetQWidget).
+          # This patch adds raw-bytes frame polling instead - no Qt objects cross.
+          curl -sL "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/patches/libopenshot-preview-frame.patch" -o /tmp/previewframe.patch
+          cd libopenshot
+          git apply /tmp/previewframe.patch
+          cd ..
           echo "AUDIO_SHA=$(cd libopenshot-audio && git rev-parse HEAD)" >> "$GITHUB_ENV"
           echo "LIBOPENSHOT_SHA=$(cd libopenshot && git rev-parse HEAD)" >> "$GITHUB_ENV"
 
@@ -95,14 +103,15 @@ jobs:
 
       # ---------- 4b. Restore compiled C++ deps (cache) ----------
       # C++ compile (~5-7 min) is skipped on cache hit; Python/packaging fixes
-      # then rebuild in ~3-4 min. Bump -vN if patches/libopenshot-ffmpeg7.patch changes
-      # or if the C++ build flags change (v2: Qt5 instead of Qt6 for libopenshot).
+      # then rebuild in ~3-4 min. Bump -vN if patches/libopenshot-ffmpeg7.patch or
+      # patches/libopenshot-preview-frame.patch changes, or if the C++ build flags
+      # change (v2: Qt5 instead of Qt6 for libopenshot; v3: preview frame API).
       - name: Restore compiled deps cache
         id: deps-cache
         uses: actions/cache@v4
         with:
           path: deps
-          key: eclipse-deps-${{ runner.os }}-${{ env.AUDIO_SHA }}-${{ env.LIBOPENSHOT_SHA }}-v2
+          key: eclipse-deps-${{ runner.os }}-${{ env.AUDIO_SHA }}-${{ env.LIBOPENSHOT_SHA }}-v3
 
       # ---------- 5. Build libopenshot-audio ----------
       - name: Build libopenshot-audio
