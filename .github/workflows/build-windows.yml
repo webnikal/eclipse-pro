@@ -40,6 +40,7 @@ jobs:
             mingw-w64-x86_64-protobuf
             mingw-w64-x86_64-opencv
             mingw-w64-x86_64-python
+            mingw-w64-x86_64-nsis
 
       # ---------- 2. Python + PyQt6 + cx_Freeze ----------
       - name: Set up Python 3.11
@@ -213,9 +214,22 @@ jobs:
           done
           ls eclipse-pro/dist | head -20
 
-      # ---------- 8. Upload exe ----------
+      # ---------- 8. Build NSIS installer ----------
+      - name: Build installer
+        shell: msys2 {0}
+        run: |
+          makensis packaging/eclipse-pro.nsi
+          ls -la EclipsePro-Setup.exe
+
+      # ---------- 9. Upload exe ----------
       - name: Upload EclipsePro
         uses: actions/upload-artifact@v4
         with:
           name: EclipsePro-windows
           path: eclipse-pro/dist/
+
+      - name: Upload EclipsePro Setup
+        uses: actions/upload-artifact@v4
+        with:
+          name: EclipsePro-Setup
+          path: EclipsePro-Setup.exe
