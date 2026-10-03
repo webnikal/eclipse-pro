@@ -88,7 +88,9 @@ jobs:
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/patches/eclipse-changes.patch" -OutFile eclipse.patch
           git apply eclipse.patch
           # Eclipse splash animation (bundled via data-files step)
-          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/packaging/eclipse-splash.gif" -OutFile "eclipse-pro/src/images/eclipse-splash.gif"
+          # NOTE: we already did 'cd eclipse-pro' above, so path is relative to repo root
+          New-Item -ItemType Directory -Force -Path "src/images" | Out-Null
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/packaging/eclipse-splash.gif" -OutFile "src/images/eclipse-splash.gif"
           git status --short | head -20
 
       # ---------- 4b. Restore compiled C++ deps (cache) ----------
