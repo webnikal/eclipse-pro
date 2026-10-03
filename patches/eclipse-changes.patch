@@ -875,10 +875,10 @@ index 0000000..cad6fa9
 +            pass
 +        self.close()
 diff --git a/src/themes/base.py b/src/themes/base.py
-index 23f8f96..2ac74bb 100755
+index 23f8f96..05d0166 100755
 --- a/src/themes/base.py
 +++ b/src/themes/base.py
-@@ -400,9 +400,27 @@ QMessageBox QDialogButtonBox#qt_msgbox_buttonbox QPushButton[dialogRole="cancel"
+@@ -400,20 +400,65 @@ QMessageBox QDialogButtonBox#qt_msgbox_buttonbox QPushButton[dialogRole="cancel"
              except Exception:
                  log.warning("Error setting Ubuntu-R.ttf QFont", exc_info=1)
  
@@ -905,8 +905,46 @@ index 23f8f96..2ac74bb 100755
 +
          # Set dock widget content margins to 0
          self.set_dock_margins()
++
++        # Eclipse Pro debug marker
++        try:
++            _edbg = open(os.path.join(self.app.info.USER_PATH, "eclipse_debug.log"), "a")
++            _edbg.write("MARKER: theme/dock-margins-1-done\n")
++            _edbg.flush()
++            _edbg.close()
++        except Exception:
++            pass
          # Let the ruler and tracks meet the dock edges in every theme, while
-@@ -460,9 +478,27 @@ QMessageBox QDialogButtonBox#qt_msgbox_buttonbox QPushButton[dialogRole="cancel"
+         # retaining a little breathing room above the timeline toolbar.
+         self.set_dock_margins([0, 0, 0, 0], [0, 10, 0, 0], "dockTimelineContents")
+ 
++        # Eclipse Pro debug marker
++        try:
++            _edbg = open(os.path.join(self.app.info.USER_PATH, "eclipse_debug.log"), "a")
++            _edbg.write("MARKER: theme/dock-margins-2-done\n")
++            _edbg.flush()
++            _edbg.close()
++        except Exception:
++            pass
++
+         # Move tabs to bottom (all dock areas, since restoreState() does not persist tab positions)
+         for area in (Qt.TopDockWidgetArea, Qt.BottomDockWidgetArea,
+                      Qt.LeftDockWidgetArea, Qt.RightDockWidgetArea):
+             self.app.window.setTabPosition(area, QTabWidget.South)
+ 
++        # Eclipse Pro debug marker
++        try:
++            _edbg = open(os.path.join(self.app.info.USER_PATH, "eclipse_debug.log"), "a")
++            _edbg.write("MARKER: theme/tabpos-done\n")
++            _edbg.flush()
++            _edbg.close()
++        except Exception:
++            pass
++
+         # Main toolbar buttons
+         toolbar_buttons = [
+             {"action": self.app.window.actionNew, "style": Qt.ToolButtonIconOnly},
+@@ -460,9 +505,27 @@ QMessageBox QDialogButtonBox#qt_msgbox_buttonbox QPushButton[dialogRole="cancel"
          ]
          self.set_toolbar_buttons(self.app.window.videoToolbar, icon_size=24, settings=toolbar_buttons)
  
