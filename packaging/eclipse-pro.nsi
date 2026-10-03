@@ -9,6 +9,8 @@
 !define EXE "EclipsePro.exe"
 
 Name "${APPNAME} ${VERSION}"
+Icon "${ICONFILE}"
+!define MUI_ICON "${ICONFILE}"
 OutFile "${OUTFILE}"
 InstallDir "$PROGRAMFILES\${APPNAME}"
 RequestExecutionLevel admin
@@ -22,10 +24,11 @@ RequestExecutionLevel admin
 Section "Install"
   SetOutPath "$INSTDIR"
   File /r "${DISTDIR}\*.*"
+  File "${ICONFILE}"
 
   CreateDirectory "$SMPROGRAMS\${APPNAME}"
-  CreateShortcut "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk" "$INSTDIR\${EXE}"
-  CreateShortcut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\${EXE}"
+  CreateShortcut "$SMPROGRAMS\${APPNAME}\${APPNAME}.lnk" "$INSTDIR\${EXE}" "" "$INSTDIR\eclipse-pro.ico"
+  CreateShortcut "$DESKTOP\${APPNAME}.lnk" "$INSTDIR\${EXE}" "" "$INSTDIR\eclipse-pro.ico"
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "DisplayName" "${APPNAME}"

@@ -217,6 +217,22 @@ jobs:
           $env:PYTHONPATH = "$env:GITHUB_WORKSPACE\\deps\\python"
           & $env:PY_EXE -m cx_Freeze --script src/launch.py --target-dir dist --target-name EclipsePro --base console
 
+      # ---------- 7b. Force PyQt6's official Qt6 DLLs ----------
+      # cx_Freeze sometimes bundles MinGW's Qt6 (found via PATH) instead of
+      # PyQt6's own -> "specified procedure could not be found" at startup.
+      # Remove any Qt6 DLLs cx_Freeze picked up, install PyQt6's official ones.
+      - name: Fix Qt DLLs (use PyQt6 official Qt6)
+        shell: pwsh
+        run: |
+          $qtBin = "$env:PY_ROOT\Lib\site-packages\PyQt6\Qt6\bin"
+          if (-not (Test-Path "$qtBin\Qt6Core.dll")) { throw "PyQt6 Qt bin not found: $qtBin" }
+          $dist = "$env:GITHUB_WORKSPACE\eclipse-pro\dist"
+          Write-Host "Removing Qt6 DLLs bundled by cx_Freeze (may be MinGW's)..."
+          Get-ChildItem $dist -Recurse -Filter "Qt6*.dll" | ForEach-Object { Write-Host "  removing $($_.Name)"; Remove-Item $_.FullName -Force }
+          Write-Host "Installing PyQt6 official Qt6 DLLs..."
+          Copy-Item "$qtBin\*.dll" $dist -Force
+          Get-ChildItem "$dist\Qt6Core.dll" | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
+
       - name: Bundle DLLs
         shell: msys2 {0}
         run: |
@@ -242,7 +258,8 @@ jobs:
         run: |
           # Repo files are not checked out on runner; fetch .nsi like the ffmpeg patch
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/packaging/eclipse-pro.nsi" -OutFile "$env:RUNNER_TEMP\\eclipse-pro.nsi"
-          & "$env:RUNNER_TEMP\\msys64\\mingw64\\bin\\makensis.exe" "/DDISTDIR=$env:GITHUB_WORKSPACE\\eclipse-pro\\dist" "/DOUTFILE=$env:GITHUB_WORKSPACE\\EclipsePro-Setup.exe" "$env:RUNNER_TEMP\\eclipse-pro.nsi"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/packaging/eclipse-pro.ico" -OutFile "$env:RUNNER_TEMP\\eclipse-pro.ico"
+          & "$env:RUNNER_TEMP\\msys64\\mingw64\\bin\\makensis.exe" "/DDISTDIR=$env:GITHUB_WORKSPACE\\eclipse-pro\\dist" "/DOUTFILE=$env:GITHUB_WORKSPACE\\EclipsePro-Setup.exe" "/DICONFILE=$env:RUNNER_TEMP\\eclipse-pro.ico" "$env:RUNNER_TEMP\\eclipse-pro.nsi"
           Get-Item "$env:GITHUB_WORKSPACE\\EclipsePro-Setup.exe" | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
 
       # ---------- 9. Upload exe ----------
