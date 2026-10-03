@@ -52,7 +52,7 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          pip install PyQt6 cx_Freeze
+          pip install PyQt6 cx_Freeze requests Pillow defusedxml
           $pyExe = (Get-Command python).Source
           $pyRoot = Split-Path $pyExe
           $pyVer = python -c "import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')"
