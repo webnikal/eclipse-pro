@@ -85,8 +85,10 @@ jobs:
           git fetch --depth 1 origin 56584c7127568b66dd406cd6d82634e62601eaaf
           git checkout FETCH_HEAD
           # Eclipse changes patch (temporary link, expires ~48h after 2026-10-03)
-          Invoke-WebRequest -Uri "https://muse.ai/files/1365194086677020/1838280244025204/ng97x84fwuqscg3qnpeksdz2/eclipse-changes.patch" -OutFile eclipse.patch
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/patches/eclipse-changes.patch" -OutFile eclipse.patch
           git apply eclipse.patch
+          # Eclipse splash animation (bundled via data-files step)
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/packaging/eclipse-splash.gif" -OutFile "eclipse-pro/src/images/eclipse-splash.gif"
           git status --short | head -20
 
       # ---------- 4b. Restore compiled C++ deps (cache) ----------
@@ -223,7 +225,7 @@ jobs:
       - name: Bundle app data files
         shell: msys2 {0}
         run: |
-          for d in settings language resources profiles images presets colors; do
+          for d in settings language resources profiles images presets colors transitions effects emojis titles themes blender comfyui; do
             mkdir -p "eclipse-pro/dist/lib/$d"
             cp -r "eclipse-pro/src/$d/"* "eclipse-pro/dist/lib/$d/" 2>/dev/null || true
             echo "$d: $(ls "eclipse-pro/dist/lib/$d" | wc -l) files staged"
@@ -271,7 +273,9 @@ jobs:
           # Repo files are not checked out on runner; fetch .nsi like the ffmpeg patch
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/packaging/eclipse-pro.nsi" -OutFile "$env:RUNNER_TEMP\\eclipse-pro.nsi"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/packaging/eclipse-pro.ico" -OutFile "$env:RUNNER_TEMP\\eclipse-pro.ico"
-          & "$env:RUNNER_TEMP\\msys64\\mingw64\\bin\\makensis.exe" "/DDISTDIR=$env:GITHUB_WORKSPACE\\eclipse-pro\\dist" "/DOUTFILE=$env:GITHUB_WORKSPACE\\EclipsePro-Setup.exe" "/DICONFILE=$env:RUNNER_TEMP\\eclipse-pro.ico" "$env:RUNNER_TEMP\\eclipse-pro.nsi"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/packaging/eclipse-header.bmp" -OutFile "$env:RUNNER_TEMP\\eclipse-header.bmp"
+          Invoke-WebRequest -Uri "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/packaging/eclipse-wizard.bmp" -OutFile "$env:RUNNER_TEMP\\eclipse-wizard.bmp"
+          & "$env:RUNNER_TEMP\\msys64\\mingw64\\bin\\makensis.exe" "/DDISTDIR=$env:GITHUB_WORKSPACE\\eclipse-pro\\dist" "/DOUTFILE=$env:GITHUB_WORKSPACE\\EclipsePro-Setup.exe" "/DICONFILE=$env:RUNNER_TEMP\\eclipse-pro.ico" "/DHEADERBMP=$env:RUNNER_TEMP\\eclipse-header.bmp" "/DWIZARDBMP=$env:RUNNER_TEMP\\eclipse-wizard.bmp" "$env:RUNNER_TEMP\\eclipse-pro.nsi"
           Get-Item "$env:GITHUB_WORKSPACE\\EclipsePro-Setup.exe" | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,1)}}
 
       # ---------- 9. Upload exe ----------

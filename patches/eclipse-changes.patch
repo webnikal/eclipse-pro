@@ -1,0 +1,844 @@
+diff --git a/BUILD-WINDOWS.md b/BUILD-WINDOWS.md
+new file mode 100644
+index 0000000..aab7729
+--- /dev/null
++++ b/BUILD-WINDOWS.md
+@@ -0,0 +1,92 @@
++# Eclipse Pro — Windows 11 Build Guide
++
++Eclipse Pro ka saara UI code **pure Python** me hai — ise compile karne ki
++zaroorat nahi. Lekin video engine (**libopenshot**, C++) Windows par build
++karna padta hai. Ye guide wahi process deta hai.
++
++## Step 1 — Python + Qt
++
++1. [python.org](https://www.python.org/downloads/) se **Python 3.11+** install
++   karo (install ke time "Add python.exe to PATH" tick karna).
++2. Is folder me terminal kholo aur chalao:
++
++```
++pip install -r requirements.txt
++```
++
++## Step 2 — libopenshot build karo (sabse bhari step)
++
++Official docs ke hisaab se Windows par libopenshot **MSYS2 + MinGW** se
++build hota hai (Visual Studio se seedha nahi):
++
++- https://github.com/OpenShot/libopenshot/wiki/Windows-Build-Instructions
++- https://github.com/openshot/libopenshot/blob/HEAD/doc/INSTALL-WINDOWS.md
++
++Summary:
++
++```
++# MSYS2 MinGW 64-bit terminal me:
++cd /c/path/to/libopenshot-audio
++mkdir build && cd build
++cmake -G "MinGW Makefiles" ..
++mingw32-make
++mingw32-make install
++
++cd /c/path/to/libopenshot
++mkdir build && cd build
++cmake -G "MinGW Makefiles" -DUSE_QT6=ON ..
++mingw32-make
++mingw32-make install
++```
++
++Build ke baad verify karo:
++
++```
++python -c "import openshot; print(openshot.__file__)"
++```
++
++Agar `import openshot` chal gaya, engine ready hai.
++
++> Note: `make install` Python bindings (`_openshot.pyd` + `openshot.py`)
++> ko Python ke site-packages me daal deta hai. Agar install skip kiya hai
++> to `run-eclipse.bat` me `PYTHONPATH` wali line uncomment karke build
++> folder ka `bindings/python` path set karo.
++
++## Step 3 — Eclipse Pro chalao
++
++```
++run-eclipse.bat
++```
++
++ya seedha:
++
++```
++python src\launch.py
++```
++
++Pehli baar me **Eclipse (Premiere Pro style) dark theme** aur naya dock
++layout (Project | Program | Effect Controls + full-width Timeline) dikhega.
++
++## Step 4 — EclipsePro.exe banao (optional)
++
++Jab upar wala run stable ho jaye, tab exe freeze karo. OpenShot ke
++official Windows installer bhi **cx_Freeze** se bante hain:
++
++```
++pip install cx_Freeze
++cxfreeze src\launch.py --target-dir dist\EclipsePro --target-name EclipsePro.exe
++```
++
++> Imaandar note: freeze karne par Qt ke DLLs, libopenshot ke DLLs aur
++> FFmpeg ko saath bundle karna padta hai. Pehli baar me kuch missing-DLL
++> errors aana normal hai — jis DLL ki complaint aaye, use `dist\EclipsePro`
++> me copy karo jab tak exe khul na jaye. Ye trial-and-error wala hissa
++> tumhari machine par hi hoga, isliye is step ki exact file-list yahan
++> pehle se nahi likhi ja sakti.
++
++## Shortcut — overlay trick (advanced)
++
++Ek maintainer ke hisaab se Windows par aksar sirf 4 files badalni padti
++hain: official OpenShot install karo, fir apni built DLLs/`_openshot.pyd`
++ko install folder ke upar copy kar do. Ye tez hai lekin version-sensitive
++hai — recommended sirf tab jab Step 2 me atak jao.
+diff --git a/requirements.txt b/requirements.txt
+new file mode 100644
+index 0000000..ee397a4
+--- /dev/null
++++ b/requirements.txt
+@@ -0,0 +1 @@
++PyQt6
+diff --git a/run-eclipse.bat b/run-eclipse.bat
+new file mode 100644
+index 0000000..932be85
+--- /dev/null
++++ b/run-eclipse.bat
+@@ -0,0 +1,13 @@
++@echo off
++REM Eclipse Pro launcher (run from source on Windows)
++REM Requires: Python 3.11+, PyQt6 (pip install -r requirements.txt),
++REM and libopenshot + libopenshot-audio built/installed (see BUILD-WINDOWS.md)
++
++setlocal
++cd /d %~dp0
++
++REM If you built libopenshot but did not install it, uncomment and set:
++REM set PYTHONPATH=C:\path\to\libopenshot\build\bin\bindings\python;%PYTHONPATH%
++
++python src\launch.py %*
++endlocal
+diff --git a/src/classes/info.py b/src/classes/info.py
+index ae38054..164cdcf 100644
+--- a/src/classes/info.py
++++ b/src/classes/info.py
+@@ -33,8 +33,8 @@ from time import strftime
+ VERSION = "4.0.1"
+ MINIMUM_LIBOPENSHOT_VERSION = "1.0.1"
+ DATE = "20260919000000"
+-NAME = "openshot-qt"
+-PRODUCT_NAME = "OpenShot Video Editor"
++NAME = "eclipse-pro"
++PRODUCT_NAME = "Eclipse Pro"
+ GPL_VERSION = "3"
+ DESCRIPTION = "Create and edit stunning videos, films, and animations with an " \
+               "easy-to-use interface and rich set of features."
+@@ -52,7 +52,7 @@ COLORS_PATH = os.path.join(PATH, "colors")
+ 
+ # User paths
+ HOME_PATH = os.path.join(os.path.expanduser("~"))
+-USER_PATH = os.path.join(HOME_PATH, ".openshot_qt")
++USER_PATH = os.path.join(HOME_PATH, ".eclipse_pro")
+ ASSETS_PATH = USER_PATH
+ BACKUP_PATH = os.path.join(USER_PATH)
+ RECOVERY_PATH = os.path.join(USER_PATH, "recovery")
+diff --git a/src/settings/_default.settings b/src/settings/_default.settings
+index 96cbd64..35012da 100644
+--- a/src/settings/_default.settings
++++ b/src/settings/_default.settings
+@@ -9,7 +9,7 @@
+     "restart": true
+   },
+   {
+-    "value": "Cosmic Dusk",
++    "value": "Eclipse",
+     "title": "Default Theme",
+     "category": "General",
+     "setting": "theme",
+diff --git a/src/themes/eclipse/__init__.py b/src/themes/eclipse/__init__.py
+new file mode 100644
+index 0000000..a0b7696
+--- /dev/null
++++ b/src/themes/eclipse/__init__.py
+@@ -0,0 +1,4 @@
++"""
++ @file
++ @brief Eclipse timeline theme - Premiere Pro style dark timeline colors
++"""
+diff --git a/src/themes/eclipse/styles.py b/src/themes/eclipse/styles.py
+new file mode 100644
+index 0000000..3854c26
+--- /dev/null
++++ b/src/themes/eclipse/styles.py
+@@ -0,0 +1,126 @@
++"""
++ @file
++ @brief Timeline theme classes for the Eclipse (Premiere Pro style) Qt theme.
++
++ @section LICENSE
++
++ Copyright (c) 2008-2024 OpenShot Studios, LLC
++ (http://www.openshotstudios.com). This file is part of
++ OpenShot Video Editor (http://www.openshot.org), an open-source project
++ dedicated to delivering high quality video editing and animation solutions
++ to the world.
++
++ OpenShot Video Editor is free software: you can redistribute it and/or modify
++ it under the terms of the GNU General Public License as published by
++ the Free Software Foundation, either version 3 of the License, or
++ (at your option) any later version.
++
++ OpenShot Video Editor is distributed in the hope that it will be useful,
++ but WITHOUT ANY WARRANTY; without even the implied warranty of
++ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ GNU General Public License for more details.
++
++ You should have received a copy of the GNU General Public License
++ along with OpenShot Library.  If not, see <http://www.gnu.org/licenses/>.
++ """
++
++from qt_api import QColor
++
++from themes.humanity.styles import HumanityDarkTimelineTheme
++from windows.views.timeline_backend.theme import _icon
++
++
++class EclipseTimelineTheme(HumanityDarkTimelineTheme):
++    """Eclipse timeline theme - Premiere Pro style dark colors."""
++
++    def __init__(self):
++        super().__init__()
++
++        # Keep labels proportional to the application font and user UI scale.
++        self.label_font_scale = 0.9
++
++        # ── Timeline ──────────────────────────────────────────────────────
++        self.background             = QColor("#1A1A1A")
++        self.background2            = QColor()
++        self.playhead_color         = QColor("#4DA3FF")
++        self.playhead_width         = 2.0
++        self.clip_selected          = QColor("#4DA3FF")
++        self.selection              = QColor(77, 163, 255, 90)
++        self.selection_border       = QColor(77, 163, 255, 140)
++        self.selection_border_width = 1.0
++        self.playback_cache_color   = QColor("#4DA3FF")
++        self.playback_cache_height  = 5.0
++        self.ruler_name_background  = QColor("#232323")
++        self.ruler_name_background2 = QColor()
++        self.scrollbar_handle       = QColor("#4DA3FF")
++        self.scrollbar_track        = QColor("#1A1A1A")
++        self.scrollbar_width        = 6
++        self.waveform_color         = QColor("#4DA3FF")
++        self.waveform_peak_color    = QColor(77, 163, 255, 128)
++        self.keyframe_fill          = QColor("#4DA3FF")
++        self.keyframe_border        = QColor("#FFFFFF")
++        self.keyframe_panel_property_bg      = QColor("#232323")
++        self.keyframe_panel_curve_color      = QColor("#4DA3FF")
++        self.keyframe_panel_marker_fill      = QColor("#4DA3FF")
++        self.keyframe_panel_marker_border   = QColor("#9CCBFF")
++
++        # ── Clip ──────────────────────────────────────────────────────────
++        # Premiere Pro style: video clips blue, audio clips green
++        self.clip.background    = QColor("#3D6EA8")
++        self.clip.background2   = QColor("#2C5484")
++        self.clip.top_overlay   = QColor(255, 255, 255, 12)
++        self.clip.top_overlay2  = QColor(255, 255, 255, 0)
++        self.clip.border_color  = QColor("#5A8FC4")
++        self.clip.border_radius = 4
++        self.clip.border_width  = 1.5
++        self.clip.font_color    = QColor("#FFFFFF")
++        self.clip.font_size     = 9
++        self.clip.height        = 58
++
++        # ── Track ─────────────────────────────────────────────────────────
++        self.track.background               = QColor("#232323")
++        self.track.background2              = QColor("#262626")
++        self.track.border_color             = QColor("#3A3A3A")
++        self.track.height                   = 56
++        self.track.gap                      = 6
++        self.track.font_color               = QColor("#D8D8D8")
++        self.track.name_background          = QColor("#232323")
++        self.track.name_border_color        = QColor("#4DA3FF")
++        self.track.name_border_top_color    = QColor("#3A3A3A")
++        self.track.name_border_bottom_color = QColor("#3A3A3A")
++        self.track.name_border_right_color  = QColor("#4A4A4A")
++
++        # ── Transition ────────────────────────────────────────────────────
++        self.transition.background   = QColor("#7A5CC9")
++        self.transition.background2  = QColor("#5E44A8")
++        self.transition.border_color = QColor("#9A7FE0")
++
++        # ── Ruler ─────────────────────────────────────────────────────────
++        self.ruler.background   = QColor("#232323")
++        self.ruler.background2  = QColor()
++        self.ruler.border_color = QColor("#4A4A4A")
++        self.ruler.font_color   = QColor("#B0B0B0")
++        self.ruler.font_size    = 10
++        self.ruler.height       = 39
++
++        # ── Icons (reuse Humanity dark icons, designed for dark themes) ───
++        _h = "themes/humanity/images/"
++        self.playhead_icon = _icon(_h + "playhead.svg")
++        self.marker_icon   = _icon(_h + "marker.svg")
++
++        self.track_keyframe_panel_disabled_icon = _icon(_h + "humanity-dark-track-keyframe-panel-show-disabled.svg")
++        self.track_keyframe_panel_enabled_icon  = _icon(_h + "humanity-dark-track-keyframe-panel-show-enabled.svg")
++        self.keyframe_panel_add_icon            = _icon(_h + "humanity-dark-keyframe-panel-add.svg")
++        self.track_add_above_disabled_icon      = _icon(_h + "track-add-above-disabled.svg")
++        self.track_add_above_enabled_icon       = _icon(_h + "track-add-above-enabled.svg")
++        self.track_add_below_disabled_icon      = _icon(_h + "track-add-below-disabled.svg")
++        self.track_add_below_enabled_icon       = _icon(_h + "track-add-below-enabled.svg")
++        self.track_delete_disabled_icon         = _icon(_h + "track-delete-disabled.svg")
++        self.track_delete_enabled_icon          = _icon(_h + "track-delete-enabled.svg")
++        self.track_locked_disabled_icon         = _icon(_h + "humanity-dark-track-locked-disabled.svg")
++        self.track_locked_enabled_icon          = _icon(_h + "humanity-dark-track-locked-enabled.svg")
++        self.track_unlocked_disabled_icon       = _icon(_h + "humanity-dark-track-unlocked-disabled.svg")
++        self.track_unlocked_enabled_icon        = _icon(_h + "humanity-dark-track-unlocked-enabled.svg")
++
++        self.keyframe_toggle_off_icon = self.track_keyframe_panel_disabled_icon
++        self.keyframe_toggle_on_icon  = self.track_keyframe_panel_enabled_icon
+diff --git a/src/themes/eclipse/theme.py b/src/themes/eclipse/theme.py
+new file mode 100644
+index 0000000..fbc5532
+--- /dev/null
++++ b/src/themes/eclipse/theme.py
+@@ -0,0 +1,230 @@
++"""
++ @file
++ @brief This file contains the Eclipse theme - Premiere Pro style dark UI
++
++ @section LICENSE
++
++ Copyright (c) 2008-2024 OpenShot Studios, LLC
++ (http://www.openshotstudios.com). This file is part of
++ OpenShot Video Editor (http://www.openshot.org), an open-source project
++ dedicated to delivering high quality video editing and animation solutions
++ to the world.
++
++ OpenShot Video Editor is free software: you can redistribute it and/or modify
++ it under the terms of the GNU General Public License as published by
++ the Free Software Foundation, either version 3 of the License, or
++ (at your option) any later version.
++
++ OpenShot Video Editor is distributed in the hope that it will be useful,
++ but WITHOUT ANY WARRANTY; without even the implied warranty of
++ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ GNU General Public License for more details.
++
++ You should have received a copy of the GNU General Public License
++ along with OpenShot Library.  If not, see <http://www.gnu.org/licenses/>.
++ """
++
++from ..base import BaseTheme
++
++
++class EclipseTheme(BaseTheme):
++    """Eclipse theme - Premiere Pro style dark professional UI."""
++    def __init__(self, app):
++        super().__init__(app)
++        self.style_sheet = """
++QToolTip, QLabel#razorHint {
++    color: #f0f0f0;
++    font-size: 12px;
++    font-weight: normal;
++    background-color: rgba(35, 35, 35, 235);
++    border: 1px solid #4da3ff;
++    border-radius: 6px;
++    margin: 0;
++    min-width: 0;
++    min-height: 0;
++    padding: 4px 8px;
++}
++
++QMainWindow {
++    background-color: #1e1e1e;
++}
++
++QMainWindow::separator {
++    background-color: #2a2a2a;
++    width: 4px;
++    height: 4px;
++}
++QMainWindow::separator:hover {
++    background-color: #4da3ff;
++}
++
++/* Premiere-style dock panel headers */
++QDockWidget {
++    color: #d8d8d8;
++    titlebar-close-icon: none;
++    titlebar-normal-icon: none;
++    font-weight: 600;
++}
++QDockWidget::title {
++    background-color: #2a2a2a;
++    padding: 6px 10px;
++    border-bottom: 1px solid #3a3a3a;
++    text-align: left;
++}
++QDockWidget::float-button, QDockWidget::close-button {
++    background: transparent;
++    border: none;
++}
++
++/* Tabs - Premiere style: active tab highlighted */
++QTabWidget::pane {
++    border: 1px solid #3a3a3a;
++    background-color: #232323;
++}
++QTabBar::tab {
++    background-color: #2a2a2a;
++    color: #9a9a9a;
++    padding: 7px 16px;
++    border: 1px solid #3a3a3a;
++    border-bottom: none;
++    border-top-left-radius: 4px;
++    border-top-right-radius: 4px;
++    margin-right: 2px;
++}
++QTabBar::tab:selected {
++    background-color: #232323;
++    color: #f0f0f0;
++    border-bottom: 2px solid #4da3ff;
++}
++QTabBar::tab:hover:!selected {
++    color: #d8d8d8;
++    background-color: #303030;
++}
++
++/* Monitors stay pure black like Premiere */
++QWidget#videoPreview {
++    background-color: #000000;
++}
++
++/* Timeline playhead accent */
++.zoom_slider_playhead {
++    background-color: #4da3ff;
++}
++
++.property_value {
++    foreground-color: #4da3ff;
++    background-color: #2a2a2a;
++}
++
++QLabel#lblMissingFileHint,
++QLabel#lblMissingFilePath {
++    color: #9a9a9a;
++}
++
++/* Scrollbars - slim dark like Premiere */
++QScrollBar:vertical {
++    background-color: #1a1a1a;
++    width: 10px;
++    border: none;
++}
++QScrollBar::handle:vertical {
++    background-color: #4a4a4a;
++    border-radius: 5px;
++    min-height: 30px;
++}
++QScrollBar::handle:vertical:hover {
++    background-color: #4da3ff;
++}
++QScrollBar:horizontal {
++    background-color: #1a1a1a;
++    height: 10px;
++    border: none;
++}
++QScrollBar::handle:horizontal {
++    background-color: #4a4a4a;
++    border-radius: 5px;
++    min-width: 30px;
++}
++QScrollBar::handle:horizontal:hover {
++    background-color: #4da3ff;
++}
++QScrollBar::add-line, QScrollBar::sub-line {
++    height: 0;
++    width: 0;
++}
++
++/* Primary action buttons - Eclipse blue */
++QPushButton[primary="true"] {
++    background-color: #2f7fc4;
++    color: #ffffff;
++    border: 1px solid #4da3ff;
++    border-radius: 4px;
++    padding: 7px 18px;
++    font-weight: 600;
++}
++QPushButton[primary="true"]:hover {
++    background-color: #4da3ff;
++}
++
++QMessageBox {
++    background-color: #232323;
++}
++QMessageBox QLabel#qt_msgbox_label {
++    color: #f0f0f0;
++}
++QMessageBox QPushButton[dialogRole="primary"] {
++    color: #ffffff;
++    background-color: #2f7fc4;
++    border: 1px solid #4da3ff;
++}
++QMessageBox QPushButton[dialogRole="primary"]:hover {
++    background-color: #4da3ff;
++}
++QMessageBox QPushButton[dialogRole="secondary"] {
++    color: #e8e8e8;
++    background-color: #333333;
++    border: 1px solid #4a4a4a;
++}
++QMessageBox QPushButton[dialogRole="secondary"]:hover {
++    background-color: #404040;
++    border-color: #5a5a5a;
++}
++QMessageBox QPushButton[dialogRole="cancel"] {
++    color: #8fc0f5;
++}
++QMessageBox QPushButton[dialogRole="cancel"]:hover {
++    color: #b7d8fa;
++    background-color: #2e2e2e;
++}
++QMessageBox QPushButton[dialogRole="destructive"] {
++    color: #ffffff;
++    background-color: #b83b48;
++    border: 1px solid #d04a58;
++}
++
++QComboBox::item {
++    height: 24px;
++}
++QComboBox {
++    combobox-popup: 0;
++}
++        """
++
++    def apply_theme(self):
++        super().apply_theme()
++
++        from classes import ui_util
++        from classes.logger import log
++        from qt_api import QStyleFactory
++
++        log.info("Setting Eclipse (Premiere Pro style) dark theme")
++        self.app.setStyle(QStyleFactory.create("Fusion"))
++        dark_palette = ui_util.make_dark_palette(self.app.palette())
++        self.app.setPalette(dark_palette)
++        self.app.setStyleSheet(self.compose_stylesheet())
++
++        from .styles import EclipseTimelineTheme
++        self.app.window.timeline.apply_theme(EclipseTimelineTheme())
++
++        # Emit signal
++        self.app.window.ThemeChangedSignal.emit(self)
+diff --git a/src/themes/manager.py b/src/themes/manager.py
+index 2c4a2e3..cad3aab 100644
+--- a/src/themes/manager.py
++++ b/src/themes/manager.py
+@@ -34,6 +34,7 @@ class ThemeName(Enum):
+     RETRO = "Retro"
+     HUMANITY_DARK = "Humanity: Dark"
+     COSMIC = "Cosmic Dusk"
++    ECLIPSE = "Eclipse"
+ 
+     @staticmethod
+     def get_sorted_theme_names():
+@@ -79,6 +80,9 @@ class ThemeManager:
+         elif theme_enum == ThemeName.COSMIC:
+             from themes.cosmic.theme import CosmicTheme
+             self.current_theme = CosmicTheme(self.app)
++        elif theme_enum == ThemeName.ECLIPSE:
++            from themes.eclipse.theme import EclipseTheme
++            self.current_theme = EclipseTheme(self.app)
+ 
+         # Set name on theme instance
+         self.current_theme.name = theme_enum.value
+diff --git a/src/windows/about.py b/src/windows/about.py
+index ff32eed..0a7cb67 100644
+--- a/src/windows/about.py
++++ b/src/windows/about.py
+@@ -186,7 +186,7 @@ class About(QDialog):
+         else:
+             log.warn("No changelog files found, disabling button")
+ 
+-        description_text = _("OpenShot Video Editor is an Award-Winning, Free, and<br> Open-Source Video Editor for Linux, Mac, Chrome OS, and Windows.")
++        description_text = _("Eclipse Pro is a Free and<br> Open-Source Video Editor for Windows.")
+         copyright_text = _('Copyright &copy; %(begin_year)s-%(current_year)s') % {
+             'begin_year': '2008',
+             'current_year': str(datetime.datetime.today().year)
+diff --git a/src/windows/main_window.py b/src/windows/main_window.py
+index 12a819a..67cb895 100644
+--- a/src/windows/main_window.py
++++ b/src/windows/main_window.py
+@@ -3452,37 +3452,58 @@ class MainWindow(updates.UpdateWatcher, QMainWindow):
+         self._apply_simple_view_layout()
+ 
+     def _apply_simple_view_layout(self):
+-        """Apply the shared Simple View dock topology."""
++        """Apply the Eclipse (Premiere Pro style) dock layout.
++
++        Top row: Project bin (left) | Program monitor (center) | Effect
++        Controls (right). Bottom: full-width Timeline.
++        """
+         self.removeDocks()
+ 
+-        # Add Docks
++        # Corners: top/bottom dock areas span the full window width
++        self.setCorner(Qt.TopLeftCorner, Qt.TopDockWidgetArea)
++        self.setCorner(Qt.TopRightCorner, Qt.TopDockWidgetArea)
++        self.setCorner(Qt.BottomLeftCorner, Qt.BottomDockWidgetArea)
++        self.setCorner(Qt.BottomRightCorner, Qt.BottomDockWidgetArea)
++
++        # Bottom: full-width Timeline
++        self.addDocks([self.dockTimeline], Qt.BottomDockWidgetArea)
++        # Left: Project bin
++        self.addDocks([self.dockFiles], Qt.LeftDockWidgetArea)
++        # Center: Program monitor
++        self.addDocks([self.dockVideo], Qt.TopDockWidgetArea)
++        # Right: Effect Controls
++        self.addDocks([self.dockProperties], Qt.RightDockWidgetArea)
++        # Extra panels tabified behind the Project panel (Premiere style)
+         self.addDocks([
+-            self.dockFiles,
+-            self.dockTransitions,
+             self.dockEffects,
++            self.dockTransitions,
+             self.dockEmojis,
+-            self.dockVideo,
+-            ], Qt.TopDockWidgetArea)
++            self.dockCaptionEditor,
++            ], Qt.LeftDockWidgetArea)
+ 
+         self.floatDocks(False)
+-        self.tabifyDockWidget(self.dockFiles, self.dockTransitions)
+-        self.tabifyDockWidget(self.dockTransitions, self.dockEffects)
+-        self.tabifyDockWidget(self.dockEffects, self.dockEmojis)
++        self.tabifyDockWidget(self.dockFiles, self.dockEffects)
++        self.tabifyDockWidget(self.dockEffects, self.dockTransitions)
++        self.tabifyDockWidget(self.dockTransitions, self.dockEmojis)
++        self.tabifyDockWidget(self.dockEmojis, self.dockCaptionEditor)
+         self.showDocks([
+             self.dockFiles,
+-            self.dockTransitions,
+-            self.dockEffects,
+-            self.dockEmojis,
+             self.dockVideo,
++            self.dockTimeline,
++            self.dockProperties,
+             ])
+ 
+-        # Set initial size of docks
+-        simple_state = "".join([
+-            "AAAA/wAAAAD9AAAAAwAAAAAAAAEnAAAC3/wCAAAAA/wAAAJeAAAApwAAAAAA////+gAAAAACAAAAAfsAAAAYAGQAbwBjAGsASwBlAHkAZgByAGEAbQBlAAAAAAD/////AAAAAAAAAAD7AAAAHABkAG8AYwBrAFAAcgBvAHAAZQByAHQAaQBlAHMAAAAAJwAAAt8AAAChAP////sAAAAYAGQAbwBjAGsAVAB1AHQAbwByAGkAYQBsAgAABUQAAAF6AAABYAAAANwAAAABAAABHAAAAUD8AgAAAAH7AAAAGABkAG8AYwBrAEsAZQB5AGYAcgBhAG0AZQEAAAFYAAAAFQAAAAAAAAAAAAAAAgAABEYAAALC/AEAAAAC/AAAAAAAAARGAAAA+gD////8AgAAAAL8AAAAPQAAAa4AAACvAP////wBAAAAAvwAAAAAAAABwQAAAJcA////+gAAAAACAAAABPsAAAASAGQAbwBjAGsARgBpAGwAZQBzAQAAAAD/////AAAAkgD////7AAAAHgBkAG8AYwBrAFQAcgBhAG4AcwBpAHQAaQBvAG4AcwEAAAAA/////wAAAJIA////+wAAABYAZABvAGMAawBFAGYAZgBlAGMAdABzAQAAAAD/////AAAAkgD////7AAAAFABkAG8AYwBrAEUAbQBvAGoAaQBzAQAAAAD/////AAAAkgD////7AAAAEgBkAG8AYwBrAFYAaQBkAGUAbwEAAAHHAAACfwAAAEcA////+wAAABgAZABvAGMAawBUAGkAbQBlAGwAaQBuAGUBAAAB8QAAAQ4AAACWAP////sAAAAiAGQAbwBjAGsAQwBhAHAAdABpAG8AbgBFAGQAaQB0AG8AcgAAAANtAAAA2QAAAFgA////AAAERgAAAAEAAAABAAAAAgAAAAEAAAAC/AAAAAEAAAACAAAAAQAAAA4AdABvAG8AbABCAGEAcgEAAAAA/////wAAAAAAAAAA"
+-        ])
+-        self.restoreState(qt_types.str_to_bytes(simple_state))
+         QCoreApplication.processEvents()
+ 
++        # Sensible initial sizes (timeline ~300px tall, side panels ~300px wide)
++        self.resizeDocks([self.dockTimeline], [300], Qt.Vertical)
++        self.resizeDocks(
++            [self.dockFiles, self.dockProperties], [300, 300], Qt.Horizontal)
++        QCoreApplication.processEvents()
++
++        self.dockFiles.raise_()
++        self.style_dock_widgets()
++
+     def actionColor_Grade_View_trigger(self):
+         """Switch to a color grading focused view."""
+         self._set_active_custom_view_id("")
+@@ -3788,7 +3809,7 @@ class MainWindow(updates.UpdateWatcher, QMainWindow):
+         if not app.project.current_filepath:
+             # Not saved yet (use singleShot since this method can be invoked by our preview thread)
+             QTimer.singleShot(0, functools.partial(self.setWindowTitle,
+-                "%s %s [%s] - %s" % (save_indicator, _("Untitled Project"), profile, "OpenShot Video Editor")))
++                "%s %s [%s] - %s" % (save_indicator, _("Untitled Project"), profile, "Eclipse Pro")))
+         else:
+             # Yes, project is saved
+             # Get just the filename
+@@ -3796,7 +3817,7 @@ class MainWindow(updates.UpdateWatcher, QMainWindow):
+             filename = os.path.splitext(filename)[0]
+             # Use singleShot since this method can be invoked by our preview thread
+             QTimer.singleShot(0, functools.partial(self.setWindowTitle,
+-                "%s %s [%s] - %s" % (save_indicator, filename, profile, "OpenShot Video Editor")))
++                "%s %s [%s] - %s" % (save_indicator, filename, profile, "Eclipse Pro")))
+ 
+     # Update undo and redo buttons enabled/disabled to available changes
+     def updateStatusChanged(self, undo_status, redo_status):
+diff --git a/src/windows/ui/about.ui b/src/windows/ui/about.ui
+index df9bfb6..bb8e530 100644
+--- a/src/windows/ui/about.ui
++++ b/src/windows/ui/about.ui
+@@ -11,7 +11,7 @@
+    </rect>
+   </property>
+   <property name="windowTitle">
+-   <string>About OpenShot</string>
++   <string>About Eclipse Pro</string>
+   </property>
+   <property name="windowIcon">
+    <iconset>
+@@ -162,7 +162,7 @@
+       </size>
+      </property>
+      <property name="accessibleName">
+-      <string>OpenShot Video Editor</string>
++      <string>Eclipse Pro</string>
+      </property>
+      <property name="text">
+       <string/>
+diff --git a/src/windows/ui/main-window.ui b/src/windows/ui/main-window.ui
+index dd949ed..5a0a50d 100644
+--- a/src/windows/ui/main-window.ui
++++ b/src/windows/ui/main-window.ui
+@@ -20,7 +20,7 @@
+    <enum>Qt::StrongFocus</enum>
+   </property>
+   <property name="windowTitle">
+-   <string>OpenShot Video Editor</string>
++   <string>Eclipse Pro</string>
+   </property>
+   <property name="windowIcon">
+    <iconset resource="../../../images/openshot.qrc">
+@@ -223,7 +223,7 @@
+     </sizepolicy>
+    </property>
+    <property name="windowTitle">
+-    <string>Project Files</string>
++    <string>Project</string>
+    </property>
+    <attribute name="dockWidgetArea">
+     <number>4</number>
+@@ -256,7 +256,7 @@
+     </sizepolicy>
+    </property>
+    <property name="windowTitle">
+-    <string>Video Preview</string>
++    <string>Program</string>
+    </property>
+    <attribute name="dockWidgetArea">
+     <number>4</number>
+@@ -400,7 +400,7 @@
+     <set>Qt::AllDockWidgetAreas</set>
+    </property>
+    <property name="windowTitle">
+-    <string>Properties</string>
++    <string>Effect Controls</string>
+    </property>
+    <attribute name="dockWidgetArea">
+     <number>8</number>
+@@ -1133,10 +1133,10 @@
+      <normaloff>:/icons/Humanity/actions/16/gtk-info.svg</normaloff>:/icons/Humanity/actions/16/gtk-info.svg</iconset>
+    </property>
+    <property name="text">
+-    <string>About OpenShot</string>
++    <string>About Eclipse Pro</string>
+    </property>
+    <property name="toolTip">
+-    <string>About OpenShot</string>
++    <string>About Eclipse Pro</string>
+    </property>
+    <property name="menuRole">
+     <enum>QAction::AboutRole</enum>
+diff --git a/openshot-qt/src/classes/app.py b/eclipse-pro/src/classes/app.py
+index 746fa72..5fdf624 100644
+--- a/openshot-qt/src/classes/app.py
++++ b/eclipse-pro/src/classes/app.py
+@@ -238,6 +238,18 @@ class OpenShotApp(QApplication):
+         info = self.info
+         log = self.log
+ 
++        # Eclipse Pro: show animated splash screen (frameless) while loading
++        try:
++            from classes.eclipse_splash import EclipseSplash
++            splash_gif = os.path.join(info.IMAGES_PATH, "eclipse-splash.gif")
++            self._eclipse_splash = EclipseSplash(splash_gif) if os.path.exists(splash_gif) else None
++            if self._eclipse_splash:
++                self._eclipse_splash.show()
++                # Let the splash paint before heavy init continues
++                self.processEvents()
++        except Exception:
++            self._eclipse_splash = None
++
+         # Init translation system
+         language.init_language()
+         sentry.set_tag("locale", info.CURRENT_LANGUAGE)
+@@ -288,6 +300,14 @@ class OpenShotApp(QApplication):
+         # Connect our exit signals
+         self.aboutToQuit.connect(self.cleanup)
+ 
++        # Eclipse Pro: close splash as the main window appears
++        try:
++            if getattr(self, "_eclipse_splash", None):
++                self._eclipse_splash.close_splash()
++                self._eclipse_splash = None
++        except Exception:
++            pass
++
+         # Show the main window using the state restored from saveGeometry().
+         self._show_main_window(self.window)
+ 
+diff --git a/eclipse-pro/src/classes/eclipse_splash.py b/eclipse-pro/src/classes/eclipse_splash.py
+new file mode 100644
+index 0000000..cad6fa9
+--- /dev/null
++++ b/eclipse-pro/src/classes/eclipse_splash.py
+@@ -0,0 +1,53 @@
++"""Eclipse Pro animated splash screen (frameless, no title bar)."""
++
++import os
++
++from PyQt6.QtCore import Qt
++from PyQt6.QtGui import QMovie
++from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
++
++
++class EclipseSplash(QWidget):
++    """Borderless animated splash shown while Eclipse Pro loads."""
++
++    def __init__(self, gif_path):
++        super().__init__(
++            None,
++            Qt.WindowType.SplashScreen | Qt.WindowType.FramelessWindowHint
++        )
++        # No window frame, no title bar, stays on top while loading
++        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
++
++        layout = QVBoxLayout(self)
++        layout.setContentsMargins(0, 0, 0, 0)
++
++        self.label = QLabel()
++        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
++        self.movie = QMovie(gif_path)
++        self.label.setMovie(self.movie)
++        layout.addWidget(self.label)
++        self.movie.start()
++
++        # Size the window to the animation
++        self.movie.jumpToFrame(0)
++        pixmap = self.movie.currentPixmap()
++        if not pixmap.isNull():
++            self.label.setFixedSize(pixmap.size())
++        self.adjustSize()
++
++        # Center on the primary screen
++        screen = self.screen()
++        if screen:
++            geo = screen.availableGeometry()
++            self.move(
++                geo.center().x() - self.width() // 2,
++                geo.center().y() - self.height() // 2,
++            )
++
++    def close_splash(self):
++        """Stop the animation and close."""
++        try:
++            self.movie.stop()
++        except Exception:
++            pass
++        self.close()

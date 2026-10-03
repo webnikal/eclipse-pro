@@ -3,6 +3,12 @@
 
 !include "MUI2.nsh"
 
+; --- Eclipse Pro branded installer graphics ---
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_BITMAP "${HEADERBMP}"
+!define MUI_WELCOMEFINISHPAGE_BITMAP "${WIZARDBMP}"
+!define MUI_UNWELCOMEFINISHPAGE_BITMAP "${WIZARDBMP}"
+
 !define APPNAME "Eclipse Pro"
 !define VERSION "1.0.0"
 !define PUBLISHER "Eclipse Pro"
