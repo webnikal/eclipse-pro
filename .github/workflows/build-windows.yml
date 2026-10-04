@@ -237,7 +237,7 @@ jobs:
           cd eclipse-pro
           $env:PATH = "$env:GITHUB_WORKSPACE\\deps\\bin;$env:PY_ROOT;$env:PY_ROOT\\bin;$env:RUNNER_TEMP\\msys64\\mingw64\\bin;$env:PATH"
           $env:PYTHONPATH = "$env:GITHUB_WORKSPACE\\deps\\python"
-          & $env:PY_EXE -m cx_Freeze --script src/launch.py --target-dir dist --target-name EclipsePro --base gui
+          & $env:PY_EXE -m cx_Freeze --script src/launch.py --target-dir dist --target-name EclipsePro --base console
 
       # ---------- 7b. Diagnostic freeze test (Qt5+Qt6 load order) ----------
       # Minimal console exe: prints exactly where the frozen app dies.

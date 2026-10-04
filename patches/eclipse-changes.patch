@@ -1080,3 +1080,31 @@ index 205c3d4..28ec987 100644
  
      def previewFrame(self, number):
          """ Preview a certain frame """
+diff --git a/src/launch.py b/src/launch.py
+--- a/src/launch.py
++++ b/src/launch.py
+@@ -45,6 +45,35 @@ import json
+ import logging
+
++# Eclipse Pro bootstrap logger: writes to a file BEFORE any Qt/imports,
++# so we can see exactly where the frozen app dies (even with --base gui).
++def _eclipse_bootstrap_log(msg):
++    try:
++        import os as _os
++        _logdir = _os.path.join(_os.path.expanduser("~"), ".openshot_qt")
++        try:
++            _os.makedirs(_logdir, exist_ok=True)
++        except Exception:
++            pass
++        with open(_os.path.join(_logdir, "eclipse_bootstrap.log"), "a",
++                  encoding="utf-8") as _f:
++            import datetime as _dt
++            _f.write(_dt.datetime.now().isoformat() + " " + str(msg) + "\n")
++    except Exception:
++        pass
++
++_eclipse_bootstrap_log("BOOTSTRAP: launch.py started")
++
+ # Ensure Qt plugin DLL dependencies are found on Windows packaged builds.
+ if os.name == "nt":
+     _exe_dir = os.path.dirname(os.path.abspath(sys.executable))
