@@ -1007,19 +1007,21 @@ index 205c3d4..28ec987 100644
  
      @pyqtSlot(object, object)
      def Init(self, parent, timeline, videoPreview):
-@@ -362,15 +366,53 @@ class PlayerWorker(QObject):
-             # Pass widget directly; C++ delivers frames via QMetaObject::invokeMethod.
-             self.player.SetQWidget(self.videoPreview)
-         else:
+@@ -361,16 +365,53 @@ class PlayerWorker(QObject):
+-        if _is_android_runtime():
+-            # Pass widget directly; C++ delivers frames via QMetaObject::invokeMethod.
+-            self.player.SetQWidget(self.videoPreview)
+-        else:
 -            # Pass raw pointer; connect C++ present() signal to Python slot.
 -            self.player.SetQWidget(unwrapinstance(self.videoPreview))
 -            self.renderer = wrapinstance(self.renderer_address, QObject)
 -            if self.renderer is not None:
 -                self.videoPreview.connectSignals(self.renderer)
-+            # Eclipse Pro: NEVER call SetQWidget() here. The bundled libopenshot is
-+            # built with Qt5/MinGW while the app runs PyQt6, so passing a QWidget
-+            # across that boundary causes a native access violation (see
-+            # eclipse_debug.log "Windows fatal exception" in SetQWidget).
++            # Eclipse Pro: NEVER call SetQWidget() on Windows. The bundled
++            # libopenshot is built with Qt5/MinGW while the app runs PyQt6,
++            # so passing ANY QWidget across that boundary causes a native
++            # access violation. (The _is_android_runtime() check is unreliable
++            # in frozen builds, so we bypass it entirely on desktop.)
 +            # Frames are instead pulled as raw bytes via CopyPreviewFrame() and the
 +            # QImage is built on the Python (Qt6) side - no Qt objects cross the
 +            # ABI boundary, making this crash impossible by construction.
