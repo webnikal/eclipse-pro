@@ -249,9 +249,12 @@ jobs:
           @'
           import sys, os
           print("DIAG-START", flush=True)
-          # Add bundled src to path (copied by workflow)
-          _base = os.path.dirname(os.path.abspath(__file__))
-          sys.path.insert(0, os.path.join(_base, "app_src"))
+          # Use the INSTALLED app's lib (has settings/, images/, etc.)
+          for _p in [r"C:\Program Files\Eclipse Pro\lib", r"C:\Program Files (x86)\Eclipse Pro\lib"]:
+              if os.path.isdir(_p):
+                  sys.path.insert(0, _p)
+                  print("DIAG-USING:", _p, flush=True)
+                  break
           try:
               from PyQt6 import QtCore, QtWidgets
               print("DIAG-PYQT6-OK", flush=True)
@@ -263,11 +266,6 @@ jobs:
           except Exception as e:
               print("DIAG-OPENSHOT-FAIL:", e, flush=True)
           try:
-              from classes import app as app_module
-              print("DIAG-APP-MODULE-OK", flush=True)
-          except Exception as e:
-              print("DIAG-APP-MODULE-FAIL:", type(e).__name__, e, flush=True)
-          try:
               from classes.app import OpenShotApp
               print("DIAG-OPENSHOTAPP-OK", flush=True)
           except Exception as e:
@@ -277,13 +275,12 @@ jobs:
               print("DIAG-APP-CREATED", flush=True)
           except Exception as e:
               print("DIAG-APP-CREATE-FAIL:", type(e).__name__, e, flush=True)
+              import traceback; traceback.print_exc()
           print("DIAG-DONE", flush=True)
           '@ | Out-File -Encoding utf8 diag_test.py
           $env:PATH = "$env:GITHUB_WORKSPACE\\deps\\bin;$env:PY_ROOT;$env:PY_ROOT\\bin;$env:RUNNER_TEMP\\msys64\\mingw64\\bin;$env:PATH"
           $env:PYTHONPATH = "$env:GITHUB_WORKSPACE\\deps\\python"
           & $env:PY_EXE -m cx_Freeze --script diag_test.py --target-dir dist-diag --target-name DiagTest --base console
-          # Bundle the app's src/ so DiagTest can import our modules
-          Copy-Item -Recurse -Force "src" "dist-diag/app_src"
 
       # ---------- 7a. Bundle app data files ----------
       # cx_Freeze only bundles .py files; copy data dirs (settings, language, etc.)
