@@ -1027,11 +1027,23 @@ index 205c3d4..28ec987 100644
 +            self._frame_buffer = bytearray(self._frame_buffer_size)
 +            self._frame_buffer_addr = ctypes.addressof(ctypes.c_char.from_buffer(self._frame_buffer))
 +            # Deliver frames to the GUI thread via queued signal (thread-safe)
-+            self.frame_ready.connect(self.videoPreview.present)
++            # NOTE: connect via adapter slot (not directly to videoPreview.present),
++            # because present() is a @pyqtSlot with a strict signature incompatible
++            # with pyqtSignal(object) in PyQt6.
++            self.frame_ready.connect(self._forward_frame)
 +            self._poll_timer = QTimer()
 +            self._poll_timer.setInterval(33)  # ~30fps poll; cheap no-op when no new frame
 +            self._poll_timer.timeout.connect(self.poll_preview_frame)
 +            self._poll_timer.start()
++
++    @pyqtSlot(object)
++    def _forward_frame(self, img):
++        """Adapter: forward the QImage to the video widget (direct Python call,
++        avoids PyQt6 strict signal/slot signature mismatch)."""
++        try:
++            self.videoPreview.present(img)
++        except Exception:
++            pass
 +
 +    @pyqtSlot()
 +    def poll_preview_frame(self):
