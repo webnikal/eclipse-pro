@@ -1105,6 +1105,15 @@ diff --git a/src/launch.py b/src/launch.py
 +
 +_eclipse_bootstrap_log("BOOTSTRAP: launch.py started")
 +
++# Eclipse Pro: enable faulthandler to catch native crashes
++try:
++    import faulthandler as _fh
++    _fh.enable()
++    _eclipse_bootstrap_log("BOOTSTRAP: faulthandler enabled")
++except Exception as _e:
++    _eclipse_bootstrap_log("BOOTSTRAP: faulthandler failed: " + str(_e))
++
+
  # Ensure Qt plugin DLL dependencies are found on Windows packaged builds.
  if os.name == "nt":
      _exe_dir = os.path.dirname(os.path.abspath(sys.executable))
