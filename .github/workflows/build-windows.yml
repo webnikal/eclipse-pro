@@ -249,7 +249,7 @@ jobs:
           @'
           print("DIAG-START", flush=True)
           try:
-              from PyQt6 import QtCore
+              from PyQt6 import QtCore, QtWidgets
               print("DIAG-PYQT6-OK", flush=True)
           except Exception as e:
               print("DIAG-PYQT6-FAIL:", e, flush=True)
@@ -258,6 +258,18 @@ jobs:
               print("DIAG-OPENSHOT-OK", flush=True)
           except Exception as e:
               print("DIAG-OPENSHOT-FAIL:", e, flush=True)
+          try:
+              app = QtWidgets.QApplication([])
+              print("DIAG-QAPP-OK", flush=True)
+          except Exception as e:
+              print("DIAG-QAPP-FAIL:", e, flush=True)
+          try:
+              w = QtWidgets.QWidget()
+              print("DIAG-WIDGET-OK", flush=True)
+              w.show()
+              print("DIAG-SHOW-OK", flush=True)
+          except Exception as e:
+              print("DIAG-WIDGET-FAIL:", e, flush=True)
           print("DIAG-DONE", flush=True)
           '@ | Out-File -Encoding utf8 diag_test.py
           $env:PATH = "$env:GITHUB_WORKSPACE\\deps\\bin;$env:PY_ROOT;$env:PY_ROOT\\bin;$env:RUNNER_TEMP\\msys64\\mingw64\\bin;$env:PATH"
