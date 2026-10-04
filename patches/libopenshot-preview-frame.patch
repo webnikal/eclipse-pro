@@ -12,108 +12,78 @@ index 6602b46..f14087a 100644
  
  
  /* Wrap std templates (list, vector, etc...) */
-diff --git a/src/Qt/VideoRenderer.cpp b/src/Qt/VideoRenderer.cpp
-index fdedcdb..3cd030b 100644
---- a/src/Qt/VideoRenderer.cpp
-+++ b/src/Qt/VideoRenderer.cpp
-@@ -53,5 +53,32 @@ void VideoRenderer::render(std::shared_ptr<QImage> image)
-     if (!image)
-         return;
- 
-+    // Stash a copy for ABI-safe polling from Python (see CopyFrame).
-+    // This never passes Qt objects across the binding boundary.
-+    {
-+        std::lock_guard<std::mutex> lock(frame_mutex);
-+        last_frame = image->convertToFormat(QImage::Format_RGBA8888);
-+        frame_dirty = true;
-+    }
-+
-     emit present(*image);
- }
-+
-+/// Copy the latest rendered frame as raw RGBA bytes into the caller's buffer.
-+/// Safe to call from any thread; only plain C types cross the ABI boundary.
-+int VideoRenderer::CopyFrame(uintptr_t buffer_address, int buffer_size, int* out_w, int* out_h)
-+{
-+    std::lock_guard<std::mutex> lock(frame_mutex);
-+    if (!frame_dirty || last_frame.isNull())
-+        return 0;
-+    const int need = last_frame.width() * last_frame.height() * 4;
-+    if (!buffer_address || buffer_size < need)
-+        return 0;
-+    memcpy(reinterpret_cast<void*>(buffer_address), last_frame.constBits(), need);
-+    if (out_w)
-+        *out_w = last_frame.width();
-+    if (out_h)
-+        *out_h = last_frame.height();
-+    frame_dirty = false;
-+    return need;
-+}
-diff --git a/src/Qt/VideoRenderer.h b/src/Qt/VideoRenderer.h
-index 1bdbdc8..ac32f0a 100644
---- a/src/Qt/VideoRenderer.h
-+++ b/src/Qt/VideoRenderer.h
-@@ -15,6 +15,7 @@
- 
- #include "../RendererBase.h"
- #include <cstdint>
-+#include <mutex>
- #include <QtCore/QMetaObject>
- #include <QtCore/QObject>
- #include <QtGui/QImage>
-@@ -35,6 +36,15 @@ public:
-     /// Override QWidget which needs to be painted
-     void OverrideWidget(uintptr_t qwidget_address);
- 
-+    /// Thread-safe: copy the latest rendered frame (RGBA8888) into the
-+    /// caller's buffer. No Qt objects cross the ABI boundary - only raw bytes.
-+    /// Returns the number of bytes written, or 0 if no new frame is available
-+    /// or the buffer is too small. out_w/out_h receive the frame dimensions.
-+    /// This exists so Python bindings built against a different Qt (or compiler)
-+    /// than the host app can still display preview frames without passing
-+    /// QObject/QWidget pointers across the boundary (which crashes).
-+    int CopyFrame(uintptr_t buffer_address, int buffer_size, int* out_w, int* out_h);
-+
- signals:
-     void present(const QImage &image);
- 
-@@ -47,6 +57,11 @@ private slots:
- private:
-     QWidget* override_widget;
-     QMetaObject::Connection override_present_connection;
-+
-+    // Latest rendered frame, guarded for cross-thread polling from Python
-+    std::mutex frame_mutex;
-+    QImage last_frame;
-+    bool frame_dirty = false;
- };
- 
- #endif //OPENSHOT_VIDEO_RENDERER_H
 diff --git a/src/QtPlayer.cpp b/src/QtPlayer.cpp
-index 0b5664d..ec3a47b 100644
+index 0b5664d..584d46d 100644
 --- a/src/QtPlayer.cpp
 +++ b/src/QtPlayer.cpp
-@@ -234,6 +234,15 @@ namespace openshot
+@@ -37,6 +37,17 @@ namespace openshot
+     , threads_started(false)
+     {
+         reader = NULL;
++
++        // Eclipse Pro: intercept preview frames via the renderer's present()
++        // signal (Qt5-to-Qt5, internal to this library - always ABI-safe).
++        // Frames are stashed for ABI-safe polling via CopyPreviewFrame().
++        // Using the renderer as connection context: auto-disconnects if the
++        // renderer is ever destroyed before this player.
++        auto* vr = static_cast<VideoRenderer*>(p->renderer);
++        if (vr) {
++            QObject::connect(vr, &VideoRenderer::present, vr,
++                [this](const QImage &image) { this->onFramePresent(image); });
++        }
+     }
+ 
+     QtPlayer::~QtPlayer()
+@@ -234,6 +245,34 @@ namespace openshot
      	return addr;
      }
  
++    // Internal: stash the latest frame from the renderer's present() signal.
++    // Runs on the player thread; guarded by QMutex for cross-thread polling.
++    void QtPlayer::onFramePresent(const QImage &image) {
++    	if (image.isNull())
++    	    return;
++    	QMutexLocker lock(&frame_mutex);
++    	last_frame = image.convertToFormat(QImage::Format_RGBA8888);
++    	frame_dirty = true;
++    }
++
 +    // Thread-safe: copy the latest preview frame into the caller's buffer.
-+    // ABI-safe alternative to SetQWidget() - no Qt objects cross the boundary.
++    // ABI-safe alternative to SetQWidget() - only raw bytes cross the boundary.
 +    int QtPlayer::CopyPreviewFrame(uintptr_t buffer_address, int buffer_size, int* out_w, int* out_h) {
-+    	auto* vr = static_cast<VideoRenderer*>(p->renderer);
-+    	if (!vr)
++    	QMutexLocker lock(&frame_mutex);
++    	if (!frame_dirty || last_frame.isNull())
 +    	    return 0;
-+    	return vr->CopyFrame(buffer_address, buffer_size, out_w, out_h);
++    	const int need = last_frame.width() * last_frame.height() * 4;
++    	if (!buffer_address || buffer_size < need)
++    	    return 0;
++    	memcpy(reinterpret_cast<void*>(buffer_address), last_frame.constBits(), need);
++    	if (out_w)
++    	    *out_w = last_frame.width();
++    	if (out_h)
++    	    *out_h = last_frame.height();
++    	frame_dirty = false;
++    	return need;
 +    }
 +
      // Get the Playback speed
      float QtPlayer::Speed() {
      	return speed;
 diff --git a/src/QtPlayer.h b/src/QtPlayer.h
-index 60c3d55..763072d 100644
+index 60c3d55..ab438c2 100644
 --- a/src/QtPlayer.h
 +++ b/src/QtPlayer.h
-@@ -98,6 +98,14 @@ namespace openshot
+@@ -18,6 +18,9 @@
+ #include <iostream>
+ #include <vector>
+ 
++#include <QtCore/QMutex>
++#include <QtGui/QImage>
++
+ #include "PlayerBase.h"
+ #include "Qt/PlayerPrivate.h"
+ #include "RendererBase.h"
+@@ -98,6 +101,26 @@ namespace openshot
  	/// Get the Renderer pointer address (for Python to cast back into a VideoRenderer)
  	uintptr_t GetRendererQObject();
  
@@ -123,7 +93,19 @@ index 60c3d55..763072d 100644
 +	/// Eclipse Pro: this ABI-safe poll replaces SetQWidget(), which crashes when the
 +	/// host app's Qt (e.g. PyQt6) differs from the Qt this library was built with,
 +	/// because no QObject/QWidget pointers cross the binding boundary here.
++	/// Frames are intercepted from the renderer's present() signal (Qt5-to-Qt5,
++	/// internal to this library) and stashed with a QMutex - VideoRenderer itself
++	/// is left completely untouched.
 +	int CopyPreviewFrame(uintptr_t buffer_address, int buffer_size, int* out_w, int* out_h);
++
++private:
++	/// Stash for the latest frame, guarded for cross-thread polling from Python
++	QMutex frame_mutex;
++	QImage last_frame;
++	bool frame_dirty = false;
++
++	/// Slot receiving frames from the renderer's present() signal (internal)
++	void onFramePresent(const QImage &image);
 +
  	/// Get the Playback speed
  	float Speed();

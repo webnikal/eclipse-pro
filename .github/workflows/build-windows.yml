@@ -66,7 +66,14 @@ jobs:
         shell: msys2 {0}
         run: |
           git clone --depth 1 https://github.com/OpenShot/libopenshot-audio.git
-          git clone --depth 1 https://github.com/OpenShot/libopenshot.git
+          # Eclipse Pro: pin libopenshot to a known-good commit (like openshot-qt).
+          # --depth 1 latest pulled untested upstream code; pin for reproducible builds.
+          git init libopenshot
+          cd libopenshot
+          git remote add origin https://github.com/OpenShot/libopenshot.git
+          git fetch --depth 1 origin 0fbacca9d54a07982a2a000de5625d8526d45664
+          git checkout FETCH_HEAD
+          cd ..
           # FFmpeg 7+ compat patch for libopenshot (AVCodec capability lists are private now)
           curl -sL "https://raw.githubusercontent.com/webnikal/eclipse-pro/main/patches/libopenshot-ffmpeg7.patch" -o /tmp/ffmpeg7.patch
           cd libopenshot
@@ -105,13 +112,14 @@ jobs:
       # C++ compile (~5-7 min) is skipped on cache hit; Python/packaging fixes
       # then rebuild in ~3-4 min. Bump -vN if patches/libopenshot-ffmpeg7.patch or
       # patches/libopenshot-preview-frame.patch changes, or if the C++ build flags
-      # change (v2: Qt5 instead of Qt6 for libopenshot; v3: preview frame API).
+      # change (v2: Qt5 instead of Qt6 for libopenshot; v3: preview frame API;
+      # v4: safer frame API - QtPlayer stash via present() signal, VideoRenderer untouched).
       - name: Restore compiled deps cache
         id: deps-cache
         uses: actions/cache@v4
         with:
           path: deps
-          key: eclipse-deps-${{ runner.os }}-${{ env.AUDIO_SHA }}-${{ env.LIBOPENSHOT_SHA }}-v3
+          key: eclipse-deps-${{ runner.os }}-${{ env.AUDIO_SHA }}-${{ env.LIBOPENSHOT_SHA }}-v4
 
       # ---------- 5. Build libopenshot-audio ----------
       - name: Build libopenshot-audio
