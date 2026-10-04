@@ -113,13 +113,13 @@ jobs:
       # then rebuild in ~3-4 min. Bump -vN if patches/libopenshot-ffmpeg7.patch or
       # patches/libopenshot-preview-frame.patch changes, or if the C++ build flags
       # change (v2: Qt5 instead of Qt6 for libopenshot; v3: preview frame API;
-      # v5: fixed protected-signal connect (SIGNAL() macro) + cstring include).
+      # v6: std::function frame callback (no Qt signals)).
       - name: Restore compiled deps cache
         id: deps-cache
         uses: actions/cache@v4
         with:
           path: deps
-          key: eclipse-deps-${{ runner.os }}-${{ env.AUDIO_SHA }}-${{ env.LIBOPENSHOT_SHA }}-v5
+          key: eclipse-deps-${{ runner.os }}-${{ env.AUDIO_SHA }}-${{ env.LIBOPENSHOT_SHA }}-v6
 
       # ---------- 5. Build libopenshot-audio ----------
       - name: Build libopenshot-audio

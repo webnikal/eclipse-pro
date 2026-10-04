@@ -12,8 +12,60 @@ index 6602b46..f14087a 100644
  
  
  /* Wrap std templates (list, vector, etc...) */
+diff --git a/src/Qt/VideoRenderer.cpp b/src/Qt/VideoRenderer.cpp
+index fdedcdb..5fc160e 100644
+--- a/src/Qt/VideoRenderer.cpp
++++ b/src/Qt/VideoRenderer.cpp
+@@ -53,5 +53,15 @@ void VideoRenderer::render(std::shared_ptr<QImage> image)
+     if (!image)
+         return;
+ 
++    // Eclipse Pro: deliver frame to the ABI-safe callback (if set) before
++    // emitting the Qt signal. No Qt objects cross the Python boundary here.
++    if (frame_callback)
++        frame_callback(*image);
++
+     emit present(*image);
+ }
++
++void VideoRenderer::setFrameCallback(std::function<void(const QImage&)> cb)
++{
++    frame_callback = cb;
++}
+diff --git a/src/Qt/VideoRenderer.h b/src/Qt/VideoRenderer.h
+index 1bdbdc8..7d2b020 100644
+--- a/src/Qt/VideoRenderer.h
++++ b/src/Qt/VideoRenderer.h
+@@ -15,6 +15,7 @@
+ 
+ #include "../RendererBase.h"
+ #include <cstdint>
++#include <functional>
+ #include <QtCore/QMetaObject>
+ #include <QtCore/QObject>
+ #include <QtGui/QImage>
+@@ -35,6 +36,11 @@ public:
+     /// Override QWidget which needs to be painted
+     void OverrideWidget(uintptr_t qwidget_address);
+ 
++    /// Eclipse Pro: set a plain C++ callback to receive each rendered frame.
++    /// ABI-safe alternative to connecting the present() signal across the
++    /// Python binding boundary. The callback runs on the player thread.
++    void setFrameCallback(std::function<void(const QImage&)> cb);
++
+ signals:
+     void present(const QImage &image);
+ 
+@@ -47,6 +53,7 @@ private slots:
+ private:
+     QWidget* override_widget;
+     QMetaObject::Connection override_present_connection;
++    std::function<void(const QImage&)> frame_callback;
+ };
+ 
+ #endif //OPENSHOT_VIDEO_RENDERER_H
 diff --git a/src/QtPlayer.cpp b/src/QtPlayer.cpp
-index 0b5664d..dec84b0 100644
+index 0b5664d..b660fc5 100644
 --- a/src/QtPlayer.cpp
 +++ b/src/QtPlayer.cpp
 @@ -13,6 +13,8 @@
@@ -25,31 +77,26 @@ index 0b5664d..dec84b0 100644
  #include "AudioDevices.h"
  #include "Clip.h"
  #include "FFmpegReader.h"
-@@ -37,6 +39,19 @@ namespace openshot
+@@ -37,6 +39,14 @@ namespace openshot
      , threads_started(false)
      {
          reader = NULL;
 +
-+        // Eclipse Pro: intercept preview frames via the renderer's present()
-+        // signal (Qt5-to-Qt5, internal to this library - always ABI-safe).
-+        // Frames are stashed for ABI-safe polling via CopyPreviewFrame().
-+        // Using the renderer as connection context: auto-disconnects if the
-+        // renderer is ever destroyed before this player.
-+        // NOTE: string-based SIGNAL() is used (not &VideoRenderer::present)
-+        // because the signal is protected and its address is not accessible here.
++        // Eclipse Pro: intercept preview frames via a plain C++ callback
++        // (no Qt signals cross any boundary - always ABI-safe).
++        // Frames are stashed for polling via CopyPreviewFrame().
 +        auto* vr = static_cast<VideoRenderer*>(p->renderer);
 +        if (vr) {
-+            QObject::connect(vr, SIGNAL(present(const QImage &)), vr,
-+                [this](const QImage &image) { this->onFramePresent(image); });
++            vr->setFrameCallback([this](const QImage &image) { this->onFramePresent(image); });
 +        }
      }
  
      QtPlayer::~QtPlayer()
-@@ -234,6 +249,34 @@ namespace openshot
+@@ -234,6 +244,34 @@ namespace openshot
      	return addr;
      }
  
-+    // Internal: stash the latest frame from the renderer's present() signal.
++    // Internal: stash the latest frame from the renderer callback.
 +    // Runs on the player thread; guarded by QMutex for cross-thread polling.
 +    void QtPlayer::onFramePresent(const QImage &image) {
 +    	if (image.isNull())
@@ -81,7 +128,7 @@ index 0b5664d..dec84b0 100644
      float QtPlayer::Speed() {
      	return speed;
 diff --git a/src/QtPlayer.h b/src/QtPlayer.h
-index 60c3d55..ab438c2 100644
+index 60c3d55..3e165f6 100644
 --- a/src/QtPlayer.h
 +++ b/src/QtPlayer.h
 @@ -18,6 +18,9 @@
@@ -94,7 +141,7 @@ index 60c3d55..ab438c2 100644
  #include "PlayerBase.h"
  #include "Qt/PlayerPrivate.h"
  #include "RendererBase.h"
-@@ -98,6 +101,26 @@ namespace openshot
+@@ -98,6 +101,23 @@ namespace openshot
  	/// Get the Renderer pointer address (for Python to cast back into a VideoRenderer)
  	uintptr_t GetRendererQObject();
  
@@ -104,9 +151,6 @@ index 60c3d55..ab438c2 100644
 +	/// Eclipse Pro: this ABI-safe poll replaces SetQWidget(), which crashes when the
 +	/// host app's Qt (e.g. PyQt6) differs from the Qt this library was built with,
 +	/// because no QObject/QWidget pointers cross the binding boundary here.
-+	/// Frames are intercepted from the renderer's present() signal (Qt5-to-Qt5,
-+	/// internal to this library) and stashed with a QMutex - VideoRenderer itself
-+	/// is left completely untouched.
 +	int CopyPreviewFrame(uintptr_t buffer_address, int buffer_size, int* out_w, int* out_h);
 +
 +private:
@@ -115,7 +159,7 @@ index 60c3d55..ab438c2 100644
 +	QImage last_frame;
 +	bool frame_dirty = false;
 +
-+	/// Slot receiving frames from the renderer's present() signal (internal)
++	/// Receives frames from the renderer's callback (runs on player thread)
 +	void onFramePresent(const QImage &image);
 +
  	/// Get the Playback speed
