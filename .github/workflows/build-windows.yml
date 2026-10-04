@@ -248,8 +248,9 @@ jobs:
           cd eclipse-pro
           @'
           import sys, os
+          import faulthandler
+          faulthandler.enable()
           print("DIAG-START", flush=True)
-          # Add bundled src to path
           _base = os.path.dirname(os.path.abspath(__file__))
           sys.path.insert(0, os.path.join(_base, "app_src"))
           print("DIAG-USING: bundled app_src", flush=True)
@@ -273,6 +274,13 @@ jobs:
               print("DIAG-APP-CREATED", flush=True)
           except Exception as e:
               print("DIAG-APP-CREATE-FAIL:", type(e).__name__, e, flush=True)
+              import traceback; traceback.print_exc()
+          try:
+              print("DIAG-CALLING-GUI", flush=True)
+              qapp.gui()
+              print("DIAG-GUI-RETURNED", flush=True)
+          except Exception as e:
+              print("DIAG-GUI-FAIL:", type(e).__name__, e, flush=True)
               import traceback; traceback.print_exc()
           print("DIAG-DONE", flush=True)
           '@ | Out-File -Encoding utf8 diag_test.py
