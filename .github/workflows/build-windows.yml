@@ -247,7 +247,11 @@ jobs:
         run: |
           cd eclipse-pro
           @'
+          import sys, os
           print("DIAG-START", flush=True)
+          # Add bundled src to path (copied by workflow)
+          _base = os.path.dirname(os.path.abspath(__file__))
+          sys.path.insert(0, os.path.join(_base, "app_src"))
           try:
               from PyQt6 import QtCore, QtWidgets
               print("DIAG-PYQT6-OK", flush=True)
@@ -259,22 +263,27 @@ jobs:
           except Exception as e:
               print("DIAG-OPENSHOT-FAIL:", e, flush=True)
           try:
-              app = QtWidgets.QApplication([])
-              print("DIAG-QAPP-OK", flush=True)
+              from classes import app as app_module
+              print("DIAG-APP-MODULE-OK", flush=True)
           except Exception as e:
-              print("DIAG-QAPP-FAIL:", e, flush=True)
+              print("DIAG-APP-MODULE-FAIL:", type(e).__name__, e, flush=True)
           try:
-              w = QtWidgets.QWidget()
-              print("DIAG-WIDGET-OK", flush=True)
-              w.show()
-              print("DIAG-SHOW-OK", flush=True)
+              from classes.app import OpenShotApp
+              print("DIAG-OPENSHOTAPP-OK", flush=True)
           except Exception as e:
-              print("DIAG-WIDGET-FAIL:", e, flush=True)
+              print("DIAG-OPENSHOTAPP-FAIL:", type(e).__name__, e, flush=True)
+          try:
+              qapp = OpenShotApp([])
+              print("DIAG-APP-CREATED", flush=True)
+          except Exception as e:
+              print("DIAG-APP-CREATE-FAIL:", type(e).__name__, e, flush=True)
           print("DIAG-DONE", flush=True)
           '@ | Out-File -Encoding utf8 diag_test.py
           $env:PATH = "$env:GITHUB_WORKSPACE\\deps\\bin;$env:PY_ROOT;$env:PY_ROOT\\bin;$env:RUNNER_TEMP\\msys64\\mingw64\\bin;$env:PATH"
           $env:PYTHONPATH = "$env:GITHUB_WORKSPACE\\deps\\python"
           & $env:PY_EXE -m cx_Freeze --script diag_test.py --target-dir dist-diag --target-name DiagTest --base console
+          # Bundle the app's src/ so DiagTest can import our modules
+          Copy-Item -Recurse -Force "src" "dist-diag/app_src"
 
       # ---------- 7a. Bundle app data files ----------
       # cx_Freeze only bundles .py files; copy data dirs (settings, language, etc.)
