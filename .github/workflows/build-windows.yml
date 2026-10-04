@@ -249,12 +249,10 @@ jobs:
           @'
           import sys, os
           print("DIAG-START", flush=True)
-          # Use the INSTALLED app's lib (has settings/, images/, etc.)
-          for _p in [r"C:\Program Files\Eclipse Pro\lib", r"C:\Program Files (x86)\Eclipse Pro\lib"]:
-              if os.path.isdir(_p):
-                  sys.path.insert(0, _p)
-                  print("DIAG-USING:", _p, flush=True)
-                  break
+          # Add bundled src to path
+          _base = os.path.dirname(os.path.abspath(__file__))
+          sys.path.insert(0, os.path.join(_base, "app_src"))
+          print("DIAG-USING: bundled app_src", flush=True)
           try:
               from PyQt6 import QtCore, QtWidgets
               print("DIAG-PYQT6-OK", flush=True)
@@ -281,6 +279,14 @@ jobs:
           $env:PATH = "$env:GITHUB_WORKSPACE\\deps\\bin;$env:PY_ROOT;$env:PY_ROOT\\bin;$env:RUNNER_TEMP\\msys64\\mingw64\\bin;$env:PATH"
           $env:PYTHONPATH = "$env:GITHUB_WORKSPACE\\deps\\python"
           & $env:PY_EXE -m cx_Freeze --script diag_test.py --target-dir dist-diag --target-name DiagTest --base console
+          # Bundle src for imports + data files where the app expects them (lib/)
+          Copy-Item -Recurse -Force "src" "dist-diag/app_src"
+          foreach ($d in @("settings","language","resources","profiles","images","presets","colors","transitions","effects","emojis","titles","themes")) {
+            if (Test-Path "src/$d") {
+              New-Item -ItemType Directory -Force -Path "dist-diag/lib/$d" | Out-Null
+              Copy-Item -Recurse -Force "src/$d/*" "dist-diag/lib/$d/"
+            }
+          }
 
       # ---------- 7a. Bundle app data files ----------
       # cx_Freeze only bundles .py files; copy data dirs (settings, language, etc.)
