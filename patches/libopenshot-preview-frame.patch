@@ -13,10 +13,19 @@ index 6602b46..f14087a 100644
  
  /* Wrap std templates (list, vector, etc...) */
 diff --git a/src/QtPlayer.cpp b/src/QtPlayer.cpp
-index 0b5664d..584d46d 100644
+index 0b5664d..dec84b0 100644
 --- a/src/QtPlayer.cpp
 +++ b/src/QtPlayer.cpp
-@@ -37,6 +37,17 @@ namespace openshot
+@@ -13,6 +13,8 @@
+ 
+ #include "QtPlayer.h"
+ 
++#include <cstring>
++
+ #include "AudioDevices.h"
+ #include "Clip.h"
+ #include "FFmpegReader.h"
+@@ -37,6 +39,19 @@ namespace openshot
      , threads_started(false)
      {
          reader = NULL;
@@ -26,15 +35,17 @@ index 0b5664d..584d46d 100644
 +        // Frames are stashed for ABI-safe polling via CopyPreviewFrame().
 +        // Using the renderer as connection context: auto-disconnects if the
 +        // renderer is ever destroyed before this player.
++        // NOTE: string-based SIGNAL() is used (not &VideoRenderer::present)
++        // because the signal is protected and its address is not accessible here.
 +        auto* vr = static_cast<VideoRenderer*>(p->renderer);
 +        if (vr) {
-+            QObject::connect(vr, &VideoRenderer::present, vr,
++            QObject::connect(vr, SIGNAL(present(const QImage &)), vr,
 +                [this](const QImage &image) { this->onFramePresent(image); });
 +        }
      }
  
      QtPlayer::~QtPlayer()
-@@ -234,6 +245,34 @@ namespace openshot
+@@ -234,6 +249,34 @@ namespace openshot
      	return addr;
      }
  
